@@ -3,13 +3,18 @@ package com.trithuc.controller;
 import com.trithuc.config.JWTTokenUtil;
 import com.trithuc.model.User;
 import com.trithuc.request.InfoUserRequest;
+import com.trithuc.request.RegisterRequest;
+import com.trithuc.response.Friends;
 import com.trithuc.response.MessageResponse;
 import com.trithuc.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,21 +27,17 @@ public class UserController {
     private JWTTokenUtil jwtTokenUtil;
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody User user) {
-        try {
-            String result = userService.registerUser(user);
-            if (result.equals("failed")) {
-                return ResponseEntity.ok("User Already exist");
-            }
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Registration failed");
-        }
+    public ResponseEntity<MessageResponse> register(@RequestBody RegisterRequest register) {
+      return userService.registerUser(register);
     }
 
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody Map<String, String> loginData) {
         return userService.loginUser(loginData);
+    }
+    @PostMapping("/new/login")
+    public ResponseEntity<MessageResponse> NewLogin(@RequestBody Map<String, String> loginData) {
+        return userService.NewLogin(loginData);
     }
 
     @GetMapping("/profile")
@@ -65,8 +66,32 @@ public class UserController {
     }
 
     @PostMapping("changePass")
-    public ResponseEntity<MessageResponse> changePass(@RequestBody Map<String,String> changePassData,
+    public ResponseEntity<MessageResponse> changePass(@RequestBody Map<String,String> changePass,
                                                       @RequestHeader(name = "Authorization") String token){
-        return userService.changePass(changePassData,token);
+        return userService.changePass(changePass,token);
+    }
+    @PostMapping("change/avatar")
+    public ResponseEntity<MessageResponse> changeAvatar(@RequestHeader(name = "Authorization") String token, @RequestParam("avatarUser") MultipartFile avatarUser) throws IOException {
+        return userService.changeAvatar(token,avatarUser);
+    }
+
+    @GetMapping("forgot/checkMail")
+    public ResponseEntity<MessageResponse> forGotPassword_SubmitMail(@RequestParam("email") String email){
+        return userService.forGotPassword_SubmitMail(email);
+    }
+
+    @GetMapping("forgot/checkCode")
+    public ResponseEntity<MessageResponse> forgotPass_checkOtpCode(@RequestParam("email") String email,@RequestParam("otpCode")String otpCode){
+        return userService.forgotPass_checkOtpCode(email,otpCode);
+    }
+
+    @GetMapping("friends/{userId}")
+    public ResponseEntity<List<Friends>> getFriendsUser(@PathVariable Long userId){
+        return ResponseEntity.ok(userService.getFriends(userId));
+    }
+
+    @GetMapping("{userId}")
+    public ResponseEntity<User> getUser(@PathVariable Long userId){
+        return ResponseEntity.ok(userService.getUserById(userId));
     }
 }

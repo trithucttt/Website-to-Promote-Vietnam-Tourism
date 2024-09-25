@@ -1,10 +1,12 @@
 package com.trithuc.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.trithuc.dto.DestinationDto;
 import com.trithuc.dto.PostDto;
 import com.trithuc.dto.TourDto;
 import com.trithuc.model.*;
 import com.trithuc.request.AddPostRequest;
+import com.trithuc.request.AddTourRequest;
 import com.trithuc.request.DestinationRequest;
 import com.trithuc.response.MessageResponse;
 import com.trithuc.response.PaginationResponse;
@@ -20,6 +22,8 @@ public interface TravelContentService {
     List<PostDto> getAllPost();
 
     ResponseEntity<PaginationResponse> searchAndPaginationPost(String title, int size, int currentPage);
+
+    ResponseEntity<PaginationResponse> manualPagination(String title, int size, int currentPage);
 
     PostDto getDetailPost(Long postId);
 
@@ -70,7 +74,15 @@ public interface TravelContentService {
 
     String createDestination(String name, String address, Long wardId,String description, MultipartFile image, String username);
 
-    ResponseEntity<MessageResponse> createNewTour(String titleTour, Double price, String description, List<Long> destinationId, MultipartFile image, String username);
+    MessageResponse createNewTour(String addTourRequest, MultipartFile image) throws JsonProcessingException;
 
     ResponseEntity<MessageResponse> createNewPost(AddPostRequest addPostRequest, String username);
+
+    MessageResponse deleteTourById(Long tourId);
+
+    TourDto getTourById(Long tourId);
+
+    List<TourDto> getToursByPostId(Long postId);
+
+    MessageResponse deletePostById(Long postId);
 }

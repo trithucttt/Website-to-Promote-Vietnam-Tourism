@@ -1,20 +1,28 @@
 package com.trithuc.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.trithuc.config.JWTTokenUtil;
+import com.trithuc.constant.TravelErrorConstant;
 import com.trithuc.dto.CommentDto;
 import com.trithuc.dto.DestinationDto;
 import com.trithuc.dto.PostDto;
 import com.trithuc.dto.TourDto;
+import com.trithuc.exception.TravelException;
 import com.trithuc.model.*;
 import com.trithuc.repository.*;
 import com.trithuc.request.AddPostRequest;
 import com.trithuc.request.AddPostTourRequest;
+import com.trithuc.request.AddTourRequest;
 import com.trithuc.request.TourSchedule;
 import com.trithuc.response.MessageResponse;
 import com.trithuc.response.Pagination;
 import com.trithuc.response.PaginationResponse;
 import com.trithuc.service.FileStoreService;
 import com.trithuc.service.TravelContentService;
+import jakarta.persistence.EntityNotFoundException;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -50,8 +58,6 @@ public class TravelContentServiceImpl implements TravelContentService {
     @Autowired
     private CommentRepository commentRepository;
     @Autowired
-    private PostTourRepository postTourRepository;
-    @Autowired
     private CityRepository cityRepository;
     @Autowired
     private DistrictRepository districtRepository;
@@ -67,6 +73,9 @@ public class TravelContentServiceImpl implements TravelContentService {
         return convertListPost(postList);
     }
 
+    /**
+     * Pagination with pageable.
+     * */
     @Override
     public ResponseEntity<PaginationResponse> searchAndPaginationPost(String title, int size, int currentPage) {
         if (title == null || title.isEmpty()) {
@@ -89,6 +98,36 @@ public class TravelContentServiceImpl implements TravelContentService {
         return ResponseEntity.ok(paginationResponse);
     }
 
+    /**
+     * Pagination manual.*/
+    @Override
+    public  ResponseEntity<PaginationResponse> manualPagination(String title, int size, int currentPage){
+        if (title == null || title.isEmpty()) {
+            title = "%";
+        } else {
+            title = "%" + title + "%";
+        }
+        List<Post> posts = postRepository.findAllByTitleLikeIgnoreCaseAndIsDeleteFalse(title);
+        int totalResult = posts.size();
+        int totalPage = (int) Math.ceil((double) totalResult / size);
+        int startIndex = (currentPage -1) * size;
+        int endIndex = Math.min(startIndex + size,totalResult);
+
+        List<Post> paginationPosts = posts.subList(startIndex,endIndex);
+
+        List<PostDto> postDtos = convertListPost(paginationPosts);
+        Pagination pagination = Pagination.builder()
+                .currentPage(currentPage)
+                .size(size)
+                .totalPage(totalPage)
+                .totalResult(totalResult)
+                .build();
+        PaginationResponse paginationResponse = new PaginationResponse();
+        paginationResponse.setData(postDtos);
+        paginationResponse.setPagination(pagination);
+        return ResponseEntity.ok(paginationResponse);
+
+    }
 
     @Override
     public PostDto getDetailPost(Long postId) {
@@ -99,7 +138,11 @@ public class TravelContentServiceImpl implements TravelContentService {
     @Override
     public Post getPostById(Long postId) {
         // TODO Auto-generated method stub
-        return postRepository.findById(postId).orElse(null);
+        Optional<Post> postOptional = postRepository.findById(postId);
+        if (postOptional.isEmpty()){
+            throw  new  TravelException(TravelErrorConstant.ERROR_CODE_POST_NOT_FOUND);
+        }
+        return postOptional.get();
     }
 
     @Override
@@ -117,13 +160,12 @@ public class TravelContentServiceImpl implements TravelContentService {
 
     @Override
     public TourDto DetailTourFolloPost(Long postID, Long tourId) {
-        PostTour postTour = postTourRepository.findByPostIdAndTourId(postID, tourId).orElse(null);
-        return (postTour != null) ? conVertDetailTourFollowPost(postTour) : null;
+        Optional<Tour> tour = tourRepository.findById(tourId);
+        return tour.map(this::conVertDetailTourFollowPost).orElse(null);
     }
 
-    private TourDto conVertDetailTourFollowPost(PostTour postTour) {
+    private TourDto conVertDetailTourFollowPost(Tour tour) {
         TourDto tourDto = new TourDto();
-        Tour tour = postTour.getTour();
 
         tourDto.setTour_id(tour.getId());
         tourDto.setTitleTour(tour.getTitle());
@@ -133,12 +175,12 @@ public class TravelContentServiceImpl implements TravelContentService {
         tourDto.setPrice(tour.getPrice());
         List<DestinationDto> destinationDtos = convertDestination(destinationRepository.findDestinationsByTourId(tour.getId()));
         tourDto.setDestiationDtoList(destinationDtos);
-        tourDto.setQuantityTour(postTour.getQuantity());
-        tourDto.setEndTime(postTour.getEndTimeTour());
-        tourDto.setStartTime(postTour.getStartTimeTour());
-        tourDto.setDiscount(postTour.getDiscount());
+        tourDto.setQuantityTour(tour.getQuantity());
+        tourDto.setEndTime(tour.getEndTimeTour());
+        tourDto.setStartTime(tour.getStartTimeTour());
+        tourDto.setDiscount(tour.getDiscount());
 
-        List<CommentDto> commentDtos = convertComment(commentRepository.findByPostTourId(postTour.getId()));
+        List<CommentDto> commentDtos = convertComment(commentRepository.findByTourId(tour.getId()));
         tourDto.setCommentList(commentDtos);
         return tourDto;
     }
@@ -185,14 +227,7 @@ public class TravelContentServiceImpl implements TravelContentService {
         postDto.setEnd_time(post.getEndTime());
         postDto.setAvatarUser(post.getUsers().getProfileImage());
         List<TourDto> tourDtos = convertTour(tourRepository.findToursByPostId(post.getId()));
-//        for (PostTour postTour : post.getTours()) {
-//            Tour tour = postTour.getTour();
-//            TourDto tourDto = new TourDto();
-//            tourDto.setTour_id(tour.getId());
-//            tourDto.setTitleTour(tour.getTitle());
-//            tourDto.setPrice(tour.getPrice());
-//            tourDtos.add(tourDto);
-//        }
+
         postDto.setTourDtoList(tourDtos);
 
         List<String> imagePost = tourDtos.stream()
@@ -205,6 +240,9 @@ public class TravelContentServiceImpl implements TravelContentService {
 
     @Override
     public List<PostDto> convertListPost(List<Post> posts) {
+        if (posts == null) {
+            return Collections.emptyList(); // or handle null case based on your requirements
+        }
         return posts.stream().map(post -> {
             PostDto postDto = new PostDto();
             postDto.setPostId(post.getId());
@@ -213,16 +251,11 @@ public class TravelContentServiceImpl implements TravelContentService {
             postDto.setTitle(post.getTitle());
             postDto.setStart_time(post.getStartTime());
             postDto.setEnd_time(post.getEndTime());
-//            postDto.setIsDelete(post.getIsDelete());
             List<TourDto> tourDtos = convertTour(tourRepository.findToursByPostId(post.getId()));
-            for (PostTour postTour : post.getTours()) {
-                Tour tour = postTour.getTour();
-                TourDto tourDto = new TourDto();
-                tourDto.setTour_id(tour.getId());
-                tourDto.setTitleTour(tour.getTitle());
-                tourDto.setPrice(tour.getPrice());
-                tourDtos.add(tourDto);
-            }
+//            for (Tour tour : post.getTours()) {
+//                TourDto tourDto = getTourDto(tour);
+//                tourDtos.add(tourDto);
+//            }
             postDto.setTourDtoList(tourDtos);
             postDto.setAvatarUser(post.getUsers().getProfileImage());
             Double avgPriceTour = tourDtos.isEmpty() ? 0 :
@@ -237,28 +270,34 @@ public class TravelContentServiceImpl implements TravelContentService {
             double avgDiscount = discounts.isEmpty() ? 0 : discounts.stream().mapToDouble(Double::doubleValue).average().orElse(0);
             postDto.setAvgDiscount(avgDiscount);
 
-            Double averageNumberOfComments = commentRepository.findAverageNumberOfCommentsByPostId(post.getId());
-            postDto.setRateAvg(averageNumberOfComments);
+//            Double averageNumberOfComments = commentRepository.findAverageNumberOfCommentsByPostId(post.getId());
+//            postDto.setRateAvg(averageNumberOfComments);
 
             return postDto;
         }).collect(Collectors.toList());
     }
 
+    private  TourDto getTourDto(Tour tour) {
+        TourDto tourDto = new TourDto();
+        tourDto.setCompanyTour(tour.getManager().getFirstname() + " " + tour.getManager().getLastname());
+        tourDto.setTour_id(tour.getId());
+        tourDto.setTitleTour(tour.getTitle());
+        tourDto.setPrice(tour.getPrice());
+        tourDto.setDiscount(tour.getDiscount());
+        tourDto.setStartTime(tour.getStartTimeTour());
+        tourDto.setEndTime(tour.getEndTimeTour());
+        tourDto.setQuantityTour(tour.getQuantity());
+        tourDto.setDescription(tour.getDescription());
+        tourDto.setImageTour(tour.getImage_tour());
+        List<DestinationDto> destinationDtos = convertDestination(destinationRepository.findDestinationsByTourId(tour.getId()));
+        tourDto.setDestiationDtoList(destinationDtos);
+        return tourDto;
+    }
+
 
     @Override
     public List<TourDto> convertTour(List<Tour> tours) {
-        return tours.stream().map(tour -> {
-            TourDto tourDto = new TourDto();
-            tourDto.setTour_id(tour.getId());
-            tourDto.setTitleTour(tour.getTitle());
-            tourDto.setDescription(tour.getDescription());
-            tourDto.setImageTour(tour.getImage_tour());
-            tourDto.setPrice(tour.getPrice());
-
-            List<DestinationDto> destinationDtos = convertDestination(destinationRepository.findDestinationsByTourId(tour.getId()));
-            tourDto.setDestiationDtoList(destinationDtos);
-            return tourDto;
-        }).collect(Collectors.toList());
+        return tours.stream().map(this::getTourDto).collect(Collectors.toList());
     }
 
     @Override
@@ -415,6 +454,8 @@ public class TravelContentServiceImpl implements TravelContentService {
         }
     }
 
+
+
     @Override
     public String createDestination(String name, String address, Long wardId, String description, MultipartFile image, String username) {
         try {
@@ -447,40 +488,52 @@ public class TravelContentServiceImpl implements TravelContentService {
 
     }
 
-    @Override
-    public ResponseEntity<MessageResponse> createNewTour(String titleTour, Double price, String description, List<Long> destinationId, MultipartFile image, String username) {
-        try {
-            MessageResponse messageResponse = new MessageResponse();
-            Optional<Optional<User>> user = Optional.ofNullable(userRepository.findByUsername(username));
-            if (user.isEmpty()) {
-                messageResponse.setResponseCode("404");
-                messageResponse.setMessage("User Not Found");
+    private MessageResponse setUpResponse(String message, String responseCode,Object data){
+        MessageResponse messageResponse = new MessageResponse();
+        messageResponse.setResponseCode(responseCode);
+        messageResponse.setMessage(message);
+        messageResponse.setData(data);
+        return messageResponse;
+    }
 
-                return ResponseEntity.ok(messageResponse);
+
+    public <T> T convertJsonToObject(String jsonString, Class<T> clazz) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        return objectMapper.readValue(jsonString, clazz);
+    }
+
+    @Override
+    public MessageResponse createNewTour(String addTourRequest, MultipartFile image) throws JsonProcessingException {
+
+            AddTourRequest request = convertJsonToObject(addTourRequest, AddTourRequest.class);
+            Optional<User> userOptional = userRepository.findById(request.getManagerId());
+            if (userOptional.isEmpty()){
+                throw new TravelException(TravelErrorConstant.USER_NOT_FOUND);
             }
-            Tour tour = new Tour();
-            tour.setDescription(description);
-            tour.setTitle(titleTour);
-            tour.setPrice(price);
-            Long maxId = tourRepository.getMaxId();
-            System.out.println("Get Max Id" + maxId);
-            String nameImage = (maxId + 1) + "_" + image.getOriginalFilename();
-            fileStoreService.saveImage(image, maxId + 1, "tours");
-            tour.setImage_tour(nameImage);
-            tour.setManager(user.get().get());
-            tour.setIsDelete(false);
-            Set<Destination> destinationSet = destinationId.stream()
+            User user = userOptional.get();
+            Set<Destination> destinations = request.getDestinationIds().stream()
                     .map(id -> destinationRepository.findById(id).orElseThrow(() -> new IllegalFormatFlagsException("Destination Not Found with id: " + id)))
                     .collect(Collectors.toSet());
-            tour.setDestination(destinationSet);
-            tourRepository.save(tour);
-            messageResponse.setResponseCode("200");
-            messageResponse.setMessage("Create Tour Successfully");
-            return ResponseEntity.ok(messageResponse);
-        } catch (Exception e) {
+            Tour newTour = new Tour();
+            Long maxId = tourRepository.getMaxId();
+            String nameImage = (maxId + 1) + "_" + image.getOriginalFilename();
+            fileStoreService.saveImage(image, maxId + 1, "tours");
+            newTour.setImage_tour(nameImage);
+            newTour.setManager(user);
+            newTour.setPrice(request.getPrice());
+            newTour.setTitle(request.getTitle());
+            newTour.setDescription(request.getDescription());
+            newTour.setDiscount(request.getDiscount());
+            newTour.setQuantity(request.getQuantity());
+            newTour.setStartTimeTour(request.getStartTime());
+            newTour.setEndTimeTour(request.getEndTime());
+            newTour.setDestination(destinations);
+            newTour.setIsDelete(false);
+            tourRepository.save(newTour);
+            return setUpResponse("Success", "200", null);
 
-            return null;
-        }
 
     }
 
@@ -490,7 +543,7 @@ public class TravelContentServiceImpl implements TravelContentService {
         LocalDateTime startTimePostPlusMonth = startTimePost.plusMonths(1);
         LocalDateTime endTimePostMinusWeek = endTimePost.minusWeeks(1);
         // lay danh sach cac tour duoc set ngay
-        List<PostTour> existingPostTour = postTourRepository.findAll();
+        List<Tour> existingTour = tourRepository.findAll();
         // luu cac ngay da co chuyen di
         Set<LocalDateTime> usedDates = new HashSet<>();
         for (AddPostTourRequest request : addPostTourRequests) {
@@ -503,7 +556,7 @@ public class TravelContentServiceImpl implements TravelContentService {
             if (endTour.isAfter(endTimePostMinusWeek)) {
                 endTour = endTimePostMinusWeek;
             }
-            while (isTourOverlapping(existingPostTour, startTour, endTour) || usedDates.contains(startTour)) {
+            while (isTourOverlapping(existingTour, startTour, endTour) || usedDates.contains(startTour)) {
                 startTour = startTour.plusDays(1);
                 endTour = endTour.plusDays(dayTour - 1);
             }
@@ -517,12 +570,12 @@ public class TravelContentServiceImpl implements TravelContentService {
         return schedules;
     }
 
-    private boolean isTourOverlapping(List<PostTour> existingPostTour, LocalDateTime startTour, LocalDateTime endTour) {
-        for (PostTour postTour : existingPostTour) {
-            if ((endTour.isEqual(postTour.getStartTimeTour()) || startTour.isAfter(postTour.getStartTimeTour())) &&
-                    (startTour.isEqual(postTour.getEndTimeTour()) || startTour.isBefore(postTour.getEndTimeTour())) ||
-                    (endTour.isEqual(postTour.getEndTimeTour()) || endTour.isAfter(postTour.getStartTimeTour())) &&
-                            (endTour.isEqual(postTour.getEndTimeTour()) || endTour.isBefore(postTour.getEndTimeTour()))) {
+    private boolean isTourOverlapping(List<Tour> existingTour, LocalDateTime startTour, LocalDateTime endTour) {
+        for (Tour tour : existingTour) {
+            if ((endTour.isEqual(tour.getStartTimeTour()) || startTour.isAfter(tour.getStartTimeTour())) &&
+                    (startTour.isEqual(tour.getEndTimeTour()) || startTour.isBefore(tour.getEndTimeTour())) ||
+                    (endTour.isEqual(tour.getEndTimeTour()) || endTour.isAfter(tour.getStartTimeTour())) &&
+                            (endTour.isEqual(tour.getEndTimeTour()) || endTour.isBefore(tour.getEndTimeTour()))) {
                 return true;
             }
         }
@@ -546,42 +599,85 @@ public class TravelContentServiceImpl implements TravelContentService {
         post.setEndTime(addPostRequest.getEndTimePost());
         post.setIsDelete(false);
         post.setUsers(user);
-        List<PostTour> postTourList = new ArrayList<>();
-        for (AddPostTourRequest request : addPostRequest.getAddPostTourRequests()) {
-            PostTour postTour = new PostTour();
-            postTour.setDiscount(request.getDiscount());
-            postTour.setQuantity(request.getQuantity());
+        List<Tour> tours = new ArrayList<>();
 
-            Optional<Tour> tourOptional = tourRepository.findById(request.getTourId());
-            if (tourOptional.isEmpty()) {
-                messageResponse.setResponseCode("404");
-                messageResponse.setMessage("Tour Not Found");
-                return ResponseEntity.ok(messageResponse);
-            }
-            postTour.setTour(tourOptional.get());
-            LocalDateTime tourStart = addPostRequest.getStartTimePost().plusMonths(1).plusDays(1);
-            LocalDateTime tourEnd = tourStart.plusDays(request.getDayTour() - 1);
-            if (tourEnd.isAfter(addPostRequest.getEndTimePost().minusWeeks(1))) {
-                tourEnd = addPostRequest.getEndTimePost().minusWeeks(1);
-            }
-            while (isTourOverlapping(postTourList, tourStart, tourEnd)){
-                tourStart = tourStart.plusDays(1);
-                tourEnd = tourStart.plusDays(request.getDayTour() - 1);
-                if (tourEnd.isAfter(addPostRequest.getEndTimePost().minusWeeks(1))) {
-                    tourEnd = addPostRequest.getStartTimePost().plusDays(1);
-                }
-            }
-            postTour.setStartTimeTour(tourStart);
-            postTour.setEndTimeTour(tourEnd);
-            postTour.setPost(post);
-            postTourRepository.save(postTour);
-            postTourList.add(postTour);
+//        for (AddPostTourRequest request : addPostRequest.getAddPostTourRequests()) {
+//            Tour tour = new Tour();
+//            postTour.setDiscount(request.getDiscount());
+//            postTour.setQuantity(request.getQuantity());
+//
+//            Optional<Tour> tourOptional = tourRepository.findById(request.getTourId());
+//            if (tourOptional.isEmpty()) {
+//                messageResponse.setResponseCode("404");
+//                messageResponse.setMessage("Tour Not Found");
+//                return ResponseEntity.ok(messageResponse);
+//            }
+//            postTour.setTour(tourOptional.get());
+//            LocalDateTime tourStart = addPostRequest.getStartTimePost().plusMonths(1).plusDays(1);
+//            LocalDateTime tourEnd = tourStart.plusDays(request.getDayTour() - 1);
+//            if (tourEnd.isAfter(addPostRequest.getEndTimePost().minusWeeks(1))) {
+//                tourEnd = addPostRequest.getEndTimePost().minusWeeks(1);
+//            }
+//            while (isTourOverlapping(postTourList, tourStart, tourEnd)){
+//                tourStart = tourStart.plusDays(1);
+//                tourEnd = tourStart.plusDays(request.getDayTour() - 1);
+//                if (tourEnd.isAfter(addPostRequest.getEndTimePost().minusWeeks(1))) {
+//                    tourEnd = addPostRequest.getStartTimePost().plusDays(1);
+//                }
+//            }
+//            postTour.setStartTimeTour(tourStart);
+//            postTour.setEndTimeTour(tourEnd);
+//            postTour.setPost(post);
+//            postTourRepository.save(postTour);
+//            postTourList.add(postTour);
 
+//        }
+////        post.setTours(new HashSet<>(postTourList));
+//        postRepository.save(post);
+//        messageResponse.setResponseCode("200");
+//        messageResponse.setMessage("Post created successfully");
+//        return ResponseEntity.ok(messageResponse);
+        return null;
+    }
+
+    @Override
+    public  MessageResponse deleteTourById(Long tourId){
+        Optional<Tour> tour = tourRepository.findById(tourId);
+        if (tour.isPresent()){
+            tour.get().setIsDelete(true);
+            tourRepository.save(tour.get());
+            return setUpResponse("Delete Tour successfully","200",null);
         }
-//        post.setTours(new HashSet<>(postTourList));
-        postRepository.save(post);
-        messageResponse.setResponseCode("200");
-        messageResponse.setMessage("Post created successfully");
-        return ResponseEntity.ok(messageResponse);
+        throw new TravelException(TravelErrorConstant.DELETE_FAILED);
+    }
+
+    @Override
+    public TourDto getTourById(Long tourId) {
+        Optional<Tour> tour = tourRepository.findById(tourId);
+        if (tour.isEmpty()){
+            throw new TravelException(TravelErrorConstant.ERROR_CODE_TOUR_NOT_FOUND);
+        }
+        return getTourDto(tour.get());
+    }
+
+
+
+    @Override
+    public List<TourDto> getToursByPostId(Long postId) {
+        Post post = getPostById(postId);
+        return tourRepository.findByPostId(postId).stream().map(this::getTourDto
+        ).toList();
+    }
+
+    @Override
+    public MessageResponse deletePostById(Long postId) {
+
+        Optional<Post> post = postRepository.findById(postId);
+        if (post.isPresent()){
+            post.get().setIsDelete(true);
+            postRepository.save(post.get());
+            return setUpResponse("Delete Post successfully","200",null);
+        }
+        throw new TravelException(TravelErrorConstant.DELETE_FAILED);
     }
 }

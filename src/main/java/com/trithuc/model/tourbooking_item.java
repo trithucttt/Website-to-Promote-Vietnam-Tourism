@@ -3,6 +3,7 @@ package com.trithuc.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.sym.Name;
 
 import jakarta.persistence.Entity;
@@ -36,14 +37,17 @@ public class tourbooking_item implements Serializable {
 	private Integer quantity;
 
 	@ManyToOne
-	@JoinColumn(name =  "post_tour_id")
-	private PostTour postTour;
+	@JoinColumn(name =  "tour_id")
+	private Tour tour;
 
 	private Double price;
+
 	@ManyToOne
 	@JoinColumn(name = "yourbooking_id")
 	private YourBooking yourbooking;
-	
+
+	@JsonIgnore
+	private String status;
 //	@Enumerated(EnumType.STRING)
 //    private itemStatus status;
 //	public enum itemStatus {

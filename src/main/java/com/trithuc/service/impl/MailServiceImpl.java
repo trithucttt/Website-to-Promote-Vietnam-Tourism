@@ -1,5 +1,6 @@
 package com.trithuc.service.impl;
 
+import com.trithuc.dto.DestinationSummary;
 import com.trithuc.dto.ItemSummary;
 import com.trithuc.dto.OrderSummary;
 import com.trithuc.model.CartItems;
@@ -48,7 +49,6 @@ public class MailServiceImpl implements MailService {
             helper.setTo(to);
             helper.setSubject("Your Order Information");
             helper.setText(content, true);
-
             javaMailSender.send(mimeMessage);
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send email", e);
@@ -57,43 +57,50 @@ public class MailServiceImpl implements MailService {
 
     private String buildEmailContent(User user, OrderSummary orderSummary) {
         StringBuilder sb = new StringBuilder();
-//        sb.append("<h1>Dear ").append(user.getFullName()).append(",</h1>")
         sb.append("<style>")
-                .append("table {")
+                .append("body {")
                 .append("font-family: Arial, sans-serif;")
-                .append("border-collapse: collapse;")
-                .append("width: 100%;")
                 .append("}")
-                .append("table th, table td {")
-                .append("border: 1px solid #dddddd;")
-                .append("text-align: left;")
-                .append("padding: 8px;")
+                .append(".card {")
+                .append("box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);")
+                .append("margin: 8px;")
+                .append("padding: 16px;")
+                .append("background-color: #f9f9f9;")
+                .append("border-radius: 5px;")
                 .append("}")
-                .append("table th {")
-                .append("background-color: #f2f2f2;")
+                .append(".container {")
+                .append("padding: 2px 16px;")
                 .append("}")
                 .append("</style>")
-                .append("<h1>Dear Mr/Mrs").append(user.getLastname()).append(",</h1>")
-                .append("<p>Thank you for your booking! Here is your booking information:</p>")
-                .append("<table>")
-                .append("<tr><th>Item</th><th>Quantity</th><th>Price</th></tr>");
+                .append("<h1>Dear Mr/Mrs ").append(user.getLastname()).append(",</h1>")
+                .append("<p>Thank you for your booking! Here is your booking information:</p>");
 
-        orderSummary.getItems().forEach(item ->
-                sb.append("<tr>")
-                        .append("<td>").append(item.getItemName()).append("</td>")
-                        .append("<td>").append(item.getQuantity()).append("</td>")
-                        .append("<td>").append(item.getPrice()).append("</td>")
-                        .append("</tr>")
-        );
+        orderSummary.getItems().forEach(item -> {
+            sb.append("<div class='card'>")
+                    .append("<h2>").append(item.getItemName()).append("</h2>")
+                    .append("<p>Quantity: ").append(item.getQuantity()).append("</p>")
+                    .append("<p>Price: $").append(String.format("%.2f", item.getPrice())).append("</p>")
+                    .append("<p>Destinations:</p>")
+                    .append("<ul>");
 
-        sb.append("</table>")
-                .append("<p>Total Quantity: ").append(orderSummary.getTotalQuantity()).append("</p>")
-                .append("<p>Total Amount: ").append(orderSummary.getTotalAmount()).append("</p>")
+//            item.getDestinations().forEach(destination ->
+//                    sb.append("<li>")
+//                            .append(destination.getName()).append(" - ").append(destination.getAddress())
+//                            .append("</li>"));
+
+            sb.append("</ul>")
+                    .append("</div>");
+        });
+
+        sb.append("<p>Total Quantity: ").append(orderSummary.getTotalQuantity()).append("</p>")
+                .append("<p>Total Amount: $").append(String.format("%.2f", orderSummary.getTotalAmount())).append("</p>")
                 .append("<p>Regards,</p>")
                 .append("<p>Travel World</p>");
 
         return sb.toString();
     }
+
+
 
     public OrderSummary getOrderSummary(OrderRequest orderRequest) {
         List<CartItems> cartItems = cartItemsRepository.findAllById(orderRequest.getCartItemId());
@@ -101,11 +108,17 @@ public class MailServiceImpl implements MailService {
         if (cartItems.isEmpty()) {
             return null;
         }
-        List<ItemSummary> itemSummaries = cartItems.stream().map(cartItem ->
-                new ItemSummary(cartItem.getPostTour().getTour().getTitle(),
-                        cartItem.getQuantity(),
-                        cartItem.getPostTour().getTour().getPrice())
-        ).collect(Collectors.toList());
+        List<ItemSummary> itemSummaries = cartItems.stream().map(cartItem -> {
+
+            List<DestinationSummary> destinations = cartItem.getTour().getDestination().stream()
+                    .map(destination -> new DestinationSummary(destination.getName(), destination.getAddress()))
+                    .collect(Collectors.toList());
+
+            return new ItemSummary(cartItem.getTour().getTitle(),
+                    cartItem.getQuantity(),
+                    cartItem.getTour().getPrice(),
+                    destinations);
+        }).collect(Collectors.toList());
 
         Double totalAmount = itemSummaries.stream()
                 .mapToDouble(item -> item.getPrice() * item.getQuantity())
@@ -117,6 +130,60 @@ public class MailServiceImpl implements MailService {
         System.out.println("totalQuantity" + totalQuantity);
         System.out.println("itemSummaries" + itemSummaries);
         return new OrderSummary(itemSummaries, totalAmount, totalQuantity);
+    }
+
+
+    private void sendHtmlEmail(String to, String subject, String body) {
+        MimeMessage message = javaMailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, "utf-8");
+
+        try {
+            helper.setFrom(mailFrom);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(body, true); // true indicates HTML content
+            javaMailSender.send(message);
+            System.out.println("Email sent successfully.");
+        } catch (MessagingException e) {
+            System.out.println("Failed to send email: " + e.getMessage());
+        }
+    }
+
+
+    @Override
+    public void sendOtpEmail(String email, String otpCode) {
+        String htmlContent = "<html><body style=\"font-family: Arial, sans-serif;\">"
+                + "<h2>Confirmation Code</h2>"
+                + "<p>Your one-time confirmation code is: <strong>" + otpCode + "</strong>.</p>"
+                + "<p>This code will expire in 15 minutes.</p>"
+                + "</body></html>";
+
+        sendHtmlEmail(email, "OTP Confirmation Code", htmlContent);
+    }
+
+    @Override
+    public void sendNewPassword(String email, String newPassword) {
+        String htmlContent = "<!DOCTYPE html>" +
+                "<html>" +
+                "<head>" +
+                "<title>New Password Issued</title>" +
+                "<style>" +
+                "body { font-family: Arial, sans-serif; }" +
+                ".container { max-width: 600px; margin: 0 auto; padding: 20px; }" +
+                "h2 { color: #333; }" +
+                "p { color: #555; }" +
+                "strong { color: #007bff; }" +
+                "</style>" +
+                "</head>" +
+                "<body>" +
+                "<div class=\"container\">" +
+                "<h2>New password is issued</h2>" +
+                "<p>Your new Password: <strong>" + newPassword + "</strong>.</p>" +
+                "</div>" +
+                "</body>" +
+                "</html>";
+
+        sendHtmlEmail(email, "New Password", htmlContent);
     }
 
 }

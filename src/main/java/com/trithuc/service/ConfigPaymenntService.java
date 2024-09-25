@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.UnsupportedEncodingException;
+import java.util.List;
 
 public interface ConfigPaymenntService {
 
@@ -29,4 +30,12 @@ public interface ConfigPaymenntService {
 
     @Transactional
     ResponseEntity<MessageResponse> sendReceipt(OrderRequest orderRequest, String token);
+
+    ResponseEntity<MessageResponse> oderHistory(String token);
+
+    ResponseEntity<MessageResponse> approveOrder(Long id);
+
+    ResponseEntity<MessageResponse> GetOrder();
+
+    List<Long> GetTourBookingItemIdsWithStatusByBusiness(String username, String status);
 }

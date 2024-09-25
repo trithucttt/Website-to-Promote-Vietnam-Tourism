@@ -3,14 +3,8 @@ package com.trithuc.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trithuc.dto.CommentDto;
-import com.trithuc.model.Comment;
-import com.trithuc.model.Image;
-import com.trithuc.model.PostTour;
-import com.trithuc.model.User;
-import com.trithuc.repository.CommentRepository;
-import com.trithuc.repository.ImageRepository;
-import com.trithuc.repository.PostTourRepository;
-import com.trithuc.repository.UserRepository;
+import com.trithuc.model.*;
+import com.trithuc.repository.*;
 import com.trithuc.request.CommentRequest;
 import com.trithuc.request.EditCommentRequest;
 import com.trithuc.response.MessageResponse;
@@ -42,7 +36,7 @@ public class CommentServiceImpl implements CommentService {
     @Autowired
     private UserRepository userRepository;
     @Autowired
-    private PostTourRepository postTourRepository;
+    private TourRepository tourRepository;
     @Autowired
     private SimpMessageSendingOperations messageTemplate;
     @Autowired
@@ -58,15 +52,16 @@ public class CommentServiceImpl implements CommentService {
         CommentRequest request = objectMapper.readValue(addCommentRequest, CommentRequest.class);
 
         Optional<User> currentUser = userRepository.findByUsername(request.getUsername());
-        PostTour postTour = postTourRepository.findByPostIdAndTourId(request.getPostId(), request.getTourId()).orElse(null);
+        Optional<Tour> tour = tourRepository.findById(request.getTourId());
+//        PostTour postTour = postTourRepository.findByPostIdAndTourId(request.getPostId(), request.getTourId()).orElse(null);
         if (currentUser.isEmpty()) {
             throw new RuntimeException("User not found");
         }
-        if (postTour != null) {
+        if (tour.isPresent()) {
             Comment comment = new Comment();
             comment.setRating(request.getRating());
             comment.setContent(request.getContent());
-            comment.setPostTour(postTour);
+            comment.setTour(tour.get());
             comment.setStart_time(LocalDateTime.now());
             comment.setUser(currentUser.get());
             Comment commentSave = commentRepository.save(comment);
@@ -112,11 +107,12 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public List<CommentDto> getListComment(Long postId, Long tourId) {
-        Optional<PostTour> postTour = postTourRepository.findByPostIdAndTourId(postId, tourId);
-        if (postTour.isEmpty()) {
+
+        Optional<Tour> tour = tourRepository.findById(tourId);
+        if (tour.isEmpty()) {
             throw new RuntimeException("Post id or tour id is incorrect");
         }
-        return convertComment(commentRepository.findByPostTourId(postTour.get().getId()));
+        return convertComment(commentRepository.findByTourId(tour.get().getId()));
     }
 
     @Override
@@ -143,7 +139,7 @@ public class CommentServiceImpl implements CommentService {
         repComment.setContent(content);
         repComment.setStart_time(LocalDateTime.now());
         repComment.setParent(parentComment);
-        repComment.setPostTour(parentComment.getPostTour());
+        repComment.setTour(parentComment.getTour());
         parentComment.getReplies().add(repComment);
         return commentRepository.save(repComment);
 
@@ -166,9 +162,8 @@ public class CommentServiceImpl implements CommentService {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized to delete this comment");
         }
 
-        // Delete all images associated with the comment
-        comment.getImages().forEach(image -> image.setComment(null));
-        comment.getImages().clear();
+        List<Image> imageList = imageRepository.findByCommentId(commentId);
+        imageRepository.deleteAll(imageList);
 
         commentRepository.deleteById(commentId);
         return ResponseEntity.status(HttpStatus.OK).body("200");
@@ -177,7 +172,7 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public void sendCommentUpdate(Comment comment) {
-        messageTemplate.convertAndSend("/topic/comments" + comment.getPostTour().getId(), comment);
+        messageTemplate.convertAndSend("/topic/comments" + comment.getTour().getId(), comment);
     }
 
     @Override

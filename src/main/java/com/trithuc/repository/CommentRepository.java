@@ -10,9 +10,9 @@ import java.util.List;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment,Long> {
-    List<Comment> findByPostTourId(Long id);
+    List<Comment> findByTourId(Long id);
 
-    @Query("SELECT COUNT(c.id) FROM Comment c WHERE c.postTour.post.id = :postId")
-    Double findAverageNumberOfCommentsByPostId(@Param("postId") Long postId);
+//    @Query("SELECT COUNT(c.id) FROM Comment c WHERE c.post.id = :postId")
+//    Double findAverageNumberOfCommentsByPostId(@Param("postId") Long postId);
 
 }

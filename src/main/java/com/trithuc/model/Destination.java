@@ -8,6 +8,7 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 @Entity
 @Data
@@ -33,6 +34,7 @@ public class Destination implements Serializable {
     @ManyToOne
     @JoinColumn(name = "manager_id")
     @JsonIgnore
+    @ToString.Exclude
     private User manager;
 
     @Lob

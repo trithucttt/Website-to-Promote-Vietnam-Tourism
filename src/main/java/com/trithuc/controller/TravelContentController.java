@@ -1,5 +1,6 @@
 package com.trithuc.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.trithuc.dto.DestinationDto;
 import com.trithuc.dto.PostDto;
 import com.trithuc.dto.TourDto;
@@ -19,8 +20,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import static org.apache.tomcat.util.http.fileupload.FileUploadBase.MULTIPART_FORM_DATA;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -42,17 +46,30 @@ public class TravelContentController {
         return travelContentService.getAllPost();
     }
 
+//    @GetMapping("post/search")
+//    public ResponseEntity<PaginationResponse> searchAndPaginationPost(@RequestParam(value = "title", required = false, defaultValue = "") String title,
+//                                                                      @RequestParam(value = "size", required = false, defaultValue = "3") int size,
+//                                                                      @RequestParam(value = "currentPage", required = false, defaultValue = "1") int currentPage) {
+//        return travelContentService.searchAndPaginationPost(title, size, currentPage);
+//    }
+
     @GetMapping("post/search")
     public ResponseEntity<PaginationResponse> searchAndPaginationPost(@RequestParam(value = "title", required = false, defaultValue = "") String title,
                                                                       @RequestParam(value = "size", required = false, defaultValue = "3") int size,
                                                                       @RequestParam(value = "currentPage", required = false, defaultValue = "1") int currentPage) {
-        return travelContentService.searchAndPaginationPost(title, size, currentPage);
+        return travelContentService.manualPagination(title, size, currentPage);
     }
 
     @GetMapping("post/detail/{postId}")
     public PostDto detailPost(@PathVariable Long postId) {
         System.out.println(postId);
         return travelContentService.getDetailPost(postId);
+    }
+
+    @GetMapping("post/get/{postId}")
+    public ResponseEntity<Post> getDetailPost(@PathVariable Long postId) {
+        System.out.println(postId);
+        return ResponseEntity.ok(travelContentService.getPostById(postId));
     }
 
     @GetMapping("post/{userId}")
@@ -66,6 +83,10 @@ public class TravelContentController {
         return travelContentService.getTourByUser(userId);
     }
 
+    @PutMapping("/business/tour/delete/{tourId}")
+    public ResponseEntity<MessageResponse> deleteTourById(@PathVariable Long tourId){
+        return ResponseEntity.ok(travelContentService.deleteTourById(tourId));
+    }
     @GetMapping("/tour")
     public List<TourDto> getTourByTokenUser(@RequestHeader(name = "Authorization") String token) {
         return travelContentService.getTourByTokenUser(token);
@@ -187,21 +208,32 @@ public class TravelContentController {
         return travelContentService.createDestination(destinationName,address,wardId,description,image,username);
     }
 
-    @PostMapping("business/tour/save")
-    public ResponseEntity<MessageResponse> createTour(@RequestParam("titleTour") String titleTour,
-                                                      @RequestParam("price") Double price,
-                                                      @RequestParam("destinationId") List<Long> destinationId,
-                                                      @RequestParam("description")String description,
-                                                      @RequestParam("image") MultipartFile image,
-                                                      @RequestHeader(name = "Authorization")
-                                    String token) {
-        String username = userService.Authentication(token);
-        return travelContentService.createNewTour(titleTour,price,description,destinationId,image,username);
+    @PostMapping(value = "business/tour/save", consumes = MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MessageResponse> createTour(@RequestPart(value = "addTourRequest") String addTourRequest,
+                                                      @RequestPart(value = "image") MultipartFile image) throws JsonProcessingException {
+
+        return ResponseEntity.ok(travelContentService.createNewTour(addTourRequest,image));
     }
 
     @PostMapping("business/post/save")
     public ResponseEntity<MessageResponse> createNewPost(@RequestHeader(name = "Authorization")String token, @RequestBody AddPostRequest addPostRequest){
         return travelContentService.createNewPost(addPostRequest,userService.Authentication(token));
     }
+
+    @GetMapping("/business/tour/{tourId}")
+    public TourDto getTourById(@PathVariable Long tourId) {
+        return travelContentService.getTourById(tourId);
+    }
+
+    @GetMapping("/business/post/getTour/{postId}")
+    public List<TourDto> getToursByPostId(@PathVariable Long postId){
+        return travelContentService.getToursByPostId(postId);
+    }
+
+    @PutMapping("/business/post/delete/{postId}")
+    public ResponseEntity<MessageResponse> deletePostById(@PathVariable Long postId){
+        return ResponseEntity.ok(travelContentService.deletePostById(postId));
+    }
+
 
 }

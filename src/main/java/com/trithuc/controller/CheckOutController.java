@@ -78,4 +78,28 @@ public class CheckOutController {
         return configPaymenntService.sendReceipt(orderRequest,token);
     }
 
+    @GetMapping("order/info")
+    public ResponseEntity<MessageResponse> getOrderHistory(@RequestHeader(name = "Authorization") String token){
+        return configPaymenntService.oderHistory(token);
+    }
+
+    @PostMapping("order/approve")
+    public ResponseEntity<MessageResponse> ApprovedOrder(@RequestParam("id") Long id){
+        return configPaymenntService.approveOrder(id);
+    }
+    @GetMapping("order/approve/info")
+    public ResponseEntity<MessageResponse> GetApprovedOrder(){
+        return configPaymenntService.GetOrder();
+    }
+
+    @GetMapping("order/business/paid")
+    public ResponseEntity<MessageResponse> GetTourBookingItemIdsWithStatusByBusiness(@RequestParam("business") String username){
+       MessageResponse messageResponse = new MessageResponse();
+       messageResponse.setMessage("Success");
+       messageResponse.setResponseCode("200");
+       List<Long> tourBookingItemIds = configPaymenntService.GetTourBookingItemIdsWithStatusByBusiness(username,"process");
+       messageResponse.setData(tourBookingItemIds);
+
+        return ResponseEntity.ok(messageResponse);
+    }
 }

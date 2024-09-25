@@ -2,6 +2,7 @@ package com.trithuc.model;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,25 +53,30 @@ public class Tour implements Serializable {
     @JsonIgnore
     private Set<Destination> destination = new HashSet<>();
 
+    @ManyToOne
+    @JoinColumn(name = "post_id")
+    private Post post;
 
-    @OneToMany(mappedBy = "tour")
-    @JsonIgnore
-    private Set<PostTour> posts = new HashSet<>();
     @JsonIgnore
     private String image_tour;
 
+    private Integer quantity;
 
-//    @ManyToMany(mappedBy = "tours")
-//    private Set<Post> posts = new HashSet<>();
+    private Double discount;
 
-//    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL)
-//    private List<Image> images;
+    private  LocalDateTime startTimeTour;
 
+    private LocalDateTime endTimeTour;
 
-//    private Long quantity;
-    //	@ManyToMany(mappedBy = "tours", cascade = CascadeType.ALL)
-//	private Set<Event> events = new HashSet<>();
-//    @OneToMany(mappedBy = "tour",cascade = CascadeType.ALL)
-//    private Set<Comment> comments = new HashSet<>();
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "tour", orphanRemoval = true)
+    @JsonIgnore
+    private List<CartItems> cartItems = new ArrayList<>();
+
+    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL)
+    private List<Comment> comments ;
+
+    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL)
+    private List<tourbooking_item> tourbooking_items;
+
 
 }

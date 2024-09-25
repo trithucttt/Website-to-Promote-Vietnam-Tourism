@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
+import lombok.ToString;
 
 @Entity
 @Data
@@ -35,7 +36,12 @@ public class Image implements Serializable{
 	@ManyToOne
 	@JoinColumn(name = "comment_id")
 	@JsonIgnore
+	@ToString.Exclude
 	private Comment comment;
-	
+
+	@ManyToOne
+	@ToString.Exclude
+	@JoinColumn(name = "post_id")
+	private Post post;
 	
 }

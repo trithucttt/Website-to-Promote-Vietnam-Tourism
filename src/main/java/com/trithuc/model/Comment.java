@@ -5,10 +5,13 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -33,6 +36,7 @@ public class Comment implements Serializable {
     @ManyToOne
     @JoinColumn(name = "user_id")
     @JsonIgnore
+    @ToString.Exclude
     private User user; // Người dùng tạo comment
 
     @ManyToOne
@@ -45,13 +49,17 @@ public class Comment implements Serializable {
     private Set<Comment> replies = new HashSet<>(); // Các reply cho comment này
 
     @ManyToOne
-    @JoinColumn(name = "post_tour_id")
+    @JoinColumn(name = "tour_id")
     @JsonIgnore
-    private PostTour postTour;
+    private Tour tour;
 
     @OneToMany(mappedBy = "comment")
     private Set<Image> images = new HashSet<>();
 
+    @JsonIgnore
+    @OneToMany(mappedBy = "relatedComment")
+    @ToString.Exclude
+    private List< Notification> notifications = new ArrayList<>();
 
 }
 

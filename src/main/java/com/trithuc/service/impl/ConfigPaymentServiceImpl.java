@@ -1,14 +1,12 @@
 package com.trithuc.service.impl;
 
+import com.trithuc.dto.ApproveOrder;
 import com.trithuc.dto.VnpPaymentDTO;
 import com.trithuc.model.*;
 import com.trithuc.repository.*;
 import com.trithuc.request.AddToCartRequest;
 import com.trithuc.request.OrderRequest;
-import com.trithuc.response.InfoCart;
-import com.trithuc.response.ListTourInCart;
-import com.trithuc.response.MessageResponse;
-import com.trithuc.response.PaymentInfoResponse;
+import com.trithuc.response.*;
 import com.trithuc.service.ConfigPaymenntService;
 import com.trithuc.service.MailService;
 import com.trithuc.service.UserService;
@@ -60,11 +58,13 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
     @Autowired
     private UserService userService;
     @Autowired
-    private PostTourRepository postTourRepository;
+    private TourRepository tourRepository;
     @Autowired
     private MailService mailService;
     @Autowired
     private WardRepository wardRepository;
+    @Autowired
+    private tourbooking_itemRepository orderItemsRepository;
 
     public ConfigPaymentServiceImpl(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -168,7 +168,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
         messageResponse.setMessage("success");
         messageResponse.setResponseCode("200");
         messageResponse.setData(paymentUrl);
-        return  ResponseEntity.ok(messageResponse);
+        return ResponseEntity.ok(messageResponse);
     }
 
 
@@ -216,7 +216,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
                 paymentInfoResponse.setBankTranNo(vnpBankTranNo);
                 paymentInfoResponse.setPayDay(payDayFormat);
                 Double totalPrice = Double.parseDouble(totalPriceString);
-                paymentInfoResponse.setTotalPrice(totalPrice);
+                paymentInfoResponse.setTotalPrice(totalPrice / 100);
                 paymentInfoResponse.setMessage("Valid successfully");
                 paymentInfoResponse.setResCode("200");
 //                redisTemplate.delete(username);
@@ -239,13 +239,14 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             messageResponse.setMessage("User not found");
             return ResponseEntity.ok(messageResponse);
         }
-        Optional<PostTour> postTourOptional = postTourRepository.findByPostIdAndTourId(addToCartRequest.getPostId(), addToCartRequest.getTourId());
-        if (postTourOptional.isEmpty() || postTourOptional.get().getQuantity() <= 0) {
+        Optional<Tour> tour = tourRepository.findById(addToCartRequest.getTourId());
+//        Optional<PostTour> postTourOptional = postTourRepository.findByPostIdAndTourId(addToCartRequest.getPostId(), addToCartRequest.getTourId());
+        if (tour.isEmpty() || tour.get().getQuantity() <= 0) {
             messageResponse.setResponseCode("404");
             messageResponse.setMessage("Tour not found or out off stock");
             return ResponseEntity.ok(messageResponse);
         }
-        CartItems existingItems = cartItemsRepository.findByPostTourIdAndUserId(postTourOptional.get().getId(), userOptional.get().getId());
+        CartItems existingItems = cartItemsRepository.findByTourIdAndUserId(tour.get().getId(), userOptional.get().getId());
         if (existingItems != null) {
             existingItems.setQuantity(existingItems.getQuantity() + addToCartRequest.getQuantity());
             cartItemsRepository.save(existingItems);
@@ -256,7 +257,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             CartItems cartItems = new CartItems();
             cartItems.setQuantity(addToCartRequest.getQuantity());
             cartItems.setUser(userOptional.get());
-            cartItems.setPostTour(postTourOptional.get());
+            cartItems.setTour(tour.get());
             cartItemsRepository.save(cartItems);
             messageResponse.setMessage("Add To Cart Successfully");
             messageResponse.setResponseCode("200");
@@ -285,18 +286,18 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             infoCart.setCartItemId(cartItem.getId());
             infoCart.setQuantity(cartItem.getQuantity());
 
-            PostTour postTour = cartItem.getPostTour();
-            if (postTour == null) {
+            Tour tour = cartItem.getTour();
+            if (tour == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found for cart item id: " + cartItem.getId());
             }
             ListTourInCart tourInCart = new ListTourInCart();
-            tourInCart.setPostTourId(postTour.getId());
-            tourInCart.setPrice(postTour.getTour().getPrice());
-            tourInCart.setTourName(postTour.getTour().getTitle());
-            tourInCart.setTourImageName(postTour.getTour().getImage_tour());
-            tourInCart.setStartTime(postTour.getStartTimeTour());
-            tourInCart.setEndTime(postTour.getEndTimeTour());
-            tourInCart.setFullNameSupplier(postTour.getTour().getManager().getLastname() + " " + postTour.getTour().getManager().getFirstname());
+            tourInCart.setPostTourId(tour.getId());
+            tourInCart.setPrice(tour.getPrice());
+            tourInCart.setTourName(tour.getTitle());
+            tourInCart.setTourImageName(tour.getImage_tour());
+            tourInCart.setStartTime(tour.getStartTimeTour());
+            tourInCart.setEndTime(tour.getEndTimeTour());
+            tourInCart.setFullNameSupplier(tour.getManager().getLastname() + " " + tour.getManager().getFirstname());
             infoCart.setListTourInCart(tourInCart);
             return infoCart;
         }).toList();
@@ -366,22 +367,24 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             return "404";
         }
         YourBooking yourBooking = new YourBooking();
-        yourBooking.setStatus("process");
+//        yourBooking.setStatus("process");
         yourBooking.setUser(user);
         List<tourbooking_item> itemList = new ArrayList<>();
         for (CartItems cartItems : cartItemsList) {
             tourbooking_item item = new tourbooking_item();
             item.setQuantity(cartItems.getQuantity());
-            item.setPrice(cartItems.getPostTour().getTour().getPrice());
+            item.setStatus("process");
+            item.setPrice(cartItems.getTour().getPrice());
             item.setYourbooking(yourBooking);
-            item.setPostTour(cartItems.getPostTour());
-            PostTour postTour = cartItems.getPostTour();
-            int quantity = postTour.getQuantity() - cartItems.getQuantity();
+
+            item.setTour(cartItems.getTour());
+            Tour tour = cartItems.getTour();
+            int quantity = tour.getQuantity() - cartItems.getQuantity();
             if (quantity < 0) {
                 return "300";
             }
-            postTour.setQuantity(quantity);
-            postTourRepository.save(postTour);
+            tour.setQuantity(quantity);
+            tourRepository.save(tour);
             itemList.add(item);
         }
         yourBooking.setTourbooking_items(itemList);
@@ -417,7 +420,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             messageResponse.setResponseCode("200");
             messageResponse.setMessage("Process receipt Successfully");
             return ResponseEntity.ok(messageResponse);
-        }else {
+        } else {
             messageResponse.setResponseCode("400");
             messageResponse.setMessage("Check out failed");
             return ResponseEntity.ok(messageResponse);
@@ -425,4 +428,97 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
 
     }
 
+
+    @Override
+    public ResponseEntity<MessageResponse> oderHistory(String token) {
+        MessageResponse messageResponse = new MessageResponse();
+        String username = userService.Authentication(token);
+        Optional<User> userOptional = userRepository.findByUsername(username);
+        if (userOptional.isEmpty()) {
+            messageResponse.setResponseCode("404");
+            messageResponse.setMessage("User not found");
+            return ResponseEntity.ok(messageResponse);
+        }
+        User user = userOptional.get();
+        List<YourBooking> bookings = yourBookingRepository.findByUser(user);
+        if (bookings.isEmpty()) {
+            messageResponse.setResponseCode("404");
+            messageResponse.setMessage("Order in null please book tour before view order");
+            return ResponseEntity.ok(messageResponse);
+        }
+        List<HistoryOrderResponse> orderResponseList = bookings.stream().map(booking -> {
+            HistoryOrderResponse orderResponse = new HistoryOrderResponse();
+            orderResponse.setBookingId(booking.getId());
+            orderResponse.setBankCode(booking.getPayment().getCode());
+            orderResponse.setTotalBooking(booking.getPayment().getTotal());
+            orderResponse.setBookingDate(booking.getPayment().getDate());
+            List<tourbooking_item> orderItemList = orderItemsRepository.findByYourbooking(booking);
+            List<InfoTourItems> infoTourItemsList = orderItemList.stream().map(item -> {
+                InfoTourItems infoTourItem = new InfoTourItems();
+                infoTourItem.setItemId(item.getId());
+                infoTourItem.setStatus(item.getStatus());
+                infoTourItem.setDiscountItem(item.getTour().getDiscount());
+                infoTourItem.setQuantityItem(item.getQuantity());
+                infoTourItem.setPrice(item.getPrice());
+                infoTourItem.setItemName(item.getTour().getTitle());
+                infoTourItem.setStartTimeItem(item.getTour().getStartTimeTour());
+                infoTourItem.setEndTimeItem(item.getTour().getEndTimeTour());
+                return infoTourItem;
+            }).toList();
+            orderResponse.setInfoTourItems(infoTourItemsList);
+            return orderResponse;
+        }).toList();
+        messageResponse.setResponseCode("200");
+        messageResponse.setMessage("successfully");
+        messageResponse.setData(orderResponseList);
+        return ResponseEntity.ok(messageResponse);
+    }
+
+    /** Approve */
+    @Override
+    public ResponseEntity<MessageResponse> approveOrder(Long id) {
+        MessageResponse messageResponse = new MessageResponse();
+        Optional<YourBooking> yourBooking = yourBookingRepository.findById(id);
+        if (yourBooking.isEmpty()) {
+            messageResponse.setResponseCode("404");
+            messageResponse.setMessage("Order not Found");
+            return ResponseEntity.ok(messageResponse);
+        }
+//        yourBooking.get().setStatus("approved");
+        yourBookingRepository.save(yourBooking.get());
+        messageResponse.setResponseCode("200");
+        messageResponse.setMessage("Approve Order Successfully");
+        return ResponseEntity.ok(messageResponse);
+    }
+
+    @Override
+    public ResponseEntity<MessageResponse> GetOrder() {
+        MessageResponse messageResponse = new MessageResponse();
+        List<YourBooking> yourBooking = yourBookingRepository.findAll();
+        if (yourBooking.isEmpty()) {
+            messageResponse.setResponseCode("404");
+            messageResponse.setMessage("Order not Found");
+            return ResponseEntity.ok(messageResponse);
+        }
+
+        List<ApproveOrder> approveOrderList = yourBooking.stream().map(item -> {
+            ApproveOrder approveOrder = new ApproveOrder();
+            approveOrder.setId(item.getId());
+            approveOrder.setUserOrder(item.getUser().getFirstname());
+//            approveOrder.setStatus(item.getStatus());
+            approveOrder.setOrderDate(item.getPayment().getDate());
+            approveOrder.setBankCodeOrder(item.getPayment().getCode());
+            approveOrder.setTotalTourOrder(item.getTourbooking_items().stream().count());
+            return approveOrder;
+        }).toList();
+        messageResponse.setData(approveOrderList);
+        messageResponse.setResponseCode("200");
+        messageResponse.setMessage("Approve Order Successfully");
+        return ResponseEntity.ok(messageResponse);
+    }
+
+    @Override
+    public List<Long> GetTourBookingItemIdsWithStatusByBusiness(String username, String status) {
+        return orderItemsRepository.findTourBookingItemIdWithStatusByUsernameBusiness(username, status);
+    }
 }

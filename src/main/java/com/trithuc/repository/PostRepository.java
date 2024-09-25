@@ -16,14 +16,13 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p WHERE p.users = :user")
     List<Post> findPostsByUser(@Param("user") User user);
 
-    @Query("SELECT t FROM Post t WHERE t.users.id = :user")
+    @Query("SELECT t FROM Post t WHERE t.users.id = :user AND t.isDelete = false")
     List<Post> findPostsByUserId(@Param("user") Long user);
 
     // Search by article title and search for articles with similar tour titles
     @Query("SELECT DISTINCT p FROM Post p " +
             "LEFT JOIN p.tours t " +
-            "WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
-            "OR LOWER(t.tour.title) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+            "WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " )
     List<Post> findByTitleContainingOrTourTitleContaining(String searchTerm);
 
     Page<Post> findByTitleLikeIgnoreCaseAndIsDeleteFalse(Pageable pageable,String title);
@@ -33,6 +32,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     List<Post> findPostByEndTimeLessThanEqual(LocalDateTime endTime);
 
-    @Query("SELECT p, AVG(t.tour.price) AS avgPrice FROM Post p JOIN p.tours t GROUP BY p ORDER BY avgPrice ASC")
+    @Query("SELECT p, AVG(t.price) AS avgPrice FROM Post p JOIN p.tours t GROUP BY p ORDER BY avgPrice ASC")
     List<Post> findAverageTourPriceOrderByAsc();
+
+    List<Post> findAllByTitleLikeIgnoreCaseAndIsDeleteFalse(String title);
 }

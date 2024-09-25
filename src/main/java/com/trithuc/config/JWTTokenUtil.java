@@ -80,9 +80,9 @@ public class JWTTokenUtil {
         return null;
     }
 
-    public String generateToken(String username, String role) {
+    public String generateToken(String username, String role,Long userId) {
         Map<String, Object> claims = new HashMap<>();
-        return doGenerateToken(claims, username, role);
+        return doGenerateToken(claims, username, role,userId);
     }
 //	private Boolean isTokenExprired(String token) {
 //		final Date exprired = getExpirationDateFromToken(token);
@@ -146,7 +146,7 @@ public class JWTTokenUtil {
 //                .compact();
 //    }
 
-    private String doGenerateToken(Map<String, Object> claims, String subject, String roleUser) {
+    private String doGenerateToken(Map<String, Object> claims, String subject, String roleUser, Long userId) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + expiration * 1000000000);
 
@@ -154,6 +154,7 @@ public class JWTTokenUtil {
                 .setClaims(claims)
                 .setSubject(subject)
                 .claim("role", roleUser)
+                .claim("userId",userId)
                 .setIssuedAt(now)
                 .setExpiration(validity)
                 .signWith(SECRET_KEY, SignatureAlgorithm.HS256)

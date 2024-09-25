@@ -2,10 +2,7 @@ package com.trithuc.model;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -15,6 +12,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 
 @Entity
@@ -33,7 +31,8 @@ public class Post implements Serializable{
 	// người đăng post
 	@ManyToOne
 	@JoinColumn(name = "user_id")
-	@JsonBackReference
+	@JsonIgnore
+	@ToString.Exclude
 	private User users;
 	
 	// content cho post
@@ -45,50 +44,30 @@ public class Post implements Serializable{
 
 	private Boolean isDelete;
 
+	@ToString.Exclude
 	@OneToMany(mappedBy = "post",cascade = CascadeType.ALL,orphanRemoval = true)
-	private Set<PostTour> tours = new HashSet<>();
+	private Set<Tour> tours = new HashSet<>();
 
+	@JsonIgnore
+	@OneToMany(mappedBy = "relatedPost")
+	@ToString.Exclude
+	private List< Notification> notifications = new ArrayList<>();
 
-//	@ManyToMany
-//	@JoinTable(
-//			name = "post_in_tour",
-//			joinColumns = @JoinColumn(name ="post_id"),
-//			inverseJoinColumns = @JoinColumn(name = "tour_id")
-//	)
-//	private Set<Tour> tours = new HashSet<>();
-//
-	// 1 post có thể có nhiều ảnh
-//	@OneToMany(mappedBy = "post")
-//	private List<Image> images;
+	private String content;
+
+//	 1 post có thể có nhiều ảnh
+	@OneToMany(mappedBy = "post")
+	@ToString.Exclude
+	private List<Image> images;
 	
 	// đánh giá của post
 //	private Integer rate;
 
-//	public City getCityTour() {
-//	    if (tour != null && tour.getDestination() != null && !tour.getDestination().isEmpty()) {
-//	        Destination destination = tour.getDestination().get(0);
-//	        if (destination != null && destination.getWard() != null && destination.getWard().getDistrict() != null) {
-//	            return destination.getWard().getDistrict().getCity();
-//	        }
-//	    }
-//	    return null;
-//	}
-//	 public String getCityName() {
-//	        if (tour != null && tour.getDestination() != null && !tour.getDestination().isEmpty()) {
-//	            Destination destination = tour.getDestination().get(0);
-//	            if (destination != null && destination.getWard() != null && destination.getWard().getDistrict() != null) {
-//	                return destination.getWard().getDistrict().getCity().getName();
-//	            }
-//	        }
-//	        return null;
-//	    }
-//	 public void setCityName(String cityName) {
-//	        // Tạo mới một đối tượng City từ tên thành phố
-//	        City city = new City();
-//	        city.setName(cityName);
-//	        this.cityName = city;
-//	    }
 
-
+//    public Post(Long id, String title1, User user) {
+//		this.id=id;
+//		this.title = title1;
+//		this.users = user;
+//    }
 	
 }

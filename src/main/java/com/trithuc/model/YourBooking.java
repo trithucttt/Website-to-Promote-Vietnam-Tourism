@@ -24,11 +24,12 @@ public class YourBooking implements Serializable{
 	
 	@ManyToOne
 	@JoinColumn(name = "user_id")
+	@JsonIgnore
 	private User user;
 
-    private String status;
 
-	
+
+	@JsonIgnore
 	@OneToMany(mappedBy = "yourbooking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
 	private List<tourbooking_item> tourbooking_items;
 

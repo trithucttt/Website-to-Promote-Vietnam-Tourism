@@ -75,6 +75,8 @@ public class FileStoreServiceImpl implements FileStoreService {
         try {
             Path file = rootLocation.resolve(type).resolve(filename);
             Resource resource = new UrlResource(file.toUri());
+            System.out.println(filename);
+            System.out.println(resource);
             if (resource.exists() || resource.isReadable()) {
                 return resource;
             } else {

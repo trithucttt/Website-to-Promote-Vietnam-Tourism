@@ -21,6 +21,9 @@ public class DestinationDto implements Serializable {
     private String location;
     private String desImage;
     private String description;
+    private Long wardId;
+    private Long districtId;
+    private Long cityId;
 //    private City city;
 //    private District district;
 //    private Ward ward;

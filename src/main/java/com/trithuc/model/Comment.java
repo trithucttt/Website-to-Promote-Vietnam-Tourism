@@ -31,7 +31,7 @@ public class Comment implements Serializable {
     private String content;
     private LocalDateTime start_time;
 
-    private Short rating;
+//    private Short rating;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -49,9 +49,9 @@ public class Comment implements Serializable {
     private Set<Comment> replies = new HashSet<>(); // Các reply cho comment này
 
     @ManyToOne
-    @JoinColumn(name = "tour_id")
+    @JoinColumn(name = "post_id")
     @JsonIgnore
-    private Tour tour;
+    private Post post;
 
     @OneToMany(mappedBy = "comment")
     private Set<Image> images = new HashSet<>();
@@ -60,6 +60,10 @@ public class Comment implements Serializable {
     @OneToMany(mappedBy = "relatedComment")
     @ToString.Exclude
     private List< Notification> notifications = new ArrayList<>();
+
+    @JsonIgnore
+    @Enumerated(EnumType.STRING)
+    private State state;
 
 }
 

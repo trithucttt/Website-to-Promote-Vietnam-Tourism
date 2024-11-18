@@ -1,5 +1,6 @@
 package com.trithuc.dto;
 
+import com.trithuc.model.Image;
 import com.trithuc.model.Tour;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -24,8 +25,9 @@ public class PostDto implements Serializable {
     private Double price;
     List<TourDto> tourDtoList;
     private List<String> imagePost;
+    private List<ImageDTO> imagePostEdit;
     private Double rateAvg;
     private Double avgDiscount;
     private String avatarUser;
-//    private Boolean isDelete;
+    private Boolean isBusiness;
 }

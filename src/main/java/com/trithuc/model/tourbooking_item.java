@@ -16,10 +16,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Data
@@ -38,21 +35,17 @@ public class tourbooking_item implements Serializable {
 
 	@ManyToOne
 	@JoinColumn(name =  "tour_id")
+	@ToString.Exclude
 	private Tour tour;
 
 	private Double price;
 
 	@ManyToOne
 	@JoinColumn(name = "yourbooking_id")
+	@ToString.Exclude
 	private YourBooking yourbooking;
 
 	@JsonIgnore
 	private String status;
-//	@Enumerated(EnumType.STRING)
-//    private itemStatus status;
-//	public enum itemStatus {
-//	    INCART,
-//	    CHECKED_OUT,
-//	}
 	
 }

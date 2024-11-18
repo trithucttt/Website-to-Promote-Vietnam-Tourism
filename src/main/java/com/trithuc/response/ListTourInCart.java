@@ -19,4 +19,5 @@ public class ListTourInCart {
     private String tourImageName;
     private Double price;
 //    private List<String> locationName;
+   private List<String> imageTourUrl;
 }

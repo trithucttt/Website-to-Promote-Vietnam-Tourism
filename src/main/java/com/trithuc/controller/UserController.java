@@ -94,4 +94,24 @@ public class UserController {
     public ResponseEntity<User> getUser(@PathVariable Long userId){
         return ResponseEntity.ok(userService.getUserById(userId));
     }
+
+    @PostMapping("friend/add")
+    public ResponseEntity<MessageResponse> addFriend(@RequestParam Long userId,@RequestParam Long friendId){
+        return ResponseEntity.ok(userService.addFriend(userId,friendId));
+    }
+
+    @PostMapping("/{userId}/sendFriendRequest/{friendId}")
+    public String sendFriendRequest(@PathVariable Long userId, @PathVariable Long friendId) {
+        return userService.sendFriendRequest(userId, friendId);
+    }
+
+    @PostMapping("/{requestUserId}/acceptFriendRequest/{userId}")
+    public String acceptFriendRequest(@PathVariable Long requestUserId, @PathVariable Long userId) {
+        return userService.acceptFriendRequest(requestUserId, userId);
+    }
+
+    @PostMapping("/{requestUserId}/rejectFriendRequest/{userId}")
+    public String rejectFriendRequest(@PathVariable Long requestUserId, @PathVariable Long userId) {
+        return userService.rejectFriendRequest(requestUserId, userId);
+    }
 }

@@ -76,16 +76,7 @@ public class User implements Serializable {
     @ToString.Exclude
     private List<CartItems> cartItems = new ArrayList<>();
 
-    //	@ManyToMany(fetch = FetchType.EAGER)
-//	@JoinTable(
-//			name = "friends",
-//			joinColumns = @JoinColumn(name = "user_id"),
-//			inverseJoinColumns = @JoinColumn(name = "friend_id")
-//	)
-//	private Set<User> friends = new HashSet<>();
-//
-//	@ManyToMany(mappedBy = "friends",fetch = FetchType.EAGER)
-//	private Set<User> friendOf = new HashSet<>();
+
     @OneToMany(mappedBy = "user")
     @JsonIgnore
     @ToString.Exclude

@@ -2,6 +2,7 @@ package com.trithuc.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.trithuc.model.Comment;
+import com.trithuc.model.Image;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,6 +19,7 @@ public class TourDto implements Serializable {
     private  Long tour_id;
     private String titleTour;
     private String companyTour;
+    private String companyAvatar;
     private Integer ratingDto;
     private String description;
     private Double price;
@@ -27,7 +29,6 @@ public class TourDto implements Serializable {
     private  LocalDateTime endTime;
     private  Integer quantityTour;
 
-    private  String imageTour;
+    private  List<String> imageTour;
     private List<DestinationDto> destiationDtoList;
-    private  List<CommentDto> commentList;
 }

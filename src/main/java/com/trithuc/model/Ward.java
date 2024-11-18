@@ -6,10 +6,12 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Entity
 @Data
 @Table(name = "ward")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Ward implements Serializable{
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

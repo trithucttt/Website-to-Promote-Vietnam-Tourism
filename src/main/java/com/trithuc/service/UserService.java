@@ -46,4 +46,12 @@ public interface UserService {
     User getUserById(Long id);
 
     List<Friends> getFriends(Long userId);
+
+    MessageResponse addFriend(Long userId, Long friendId);
+
+    String sendFriendRequest(Long userId, Long friendId);
+
+    String acceptFriendRequest(Long userId, Long friendId);
+
+    String rejectFriendRequest(Long userId, Long friendId);
 }

@@ -9,10 +9,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.sym.Name;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
 
 
 @Entity
@@ -20,12 +17,14 @@ import lombok.ToString;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "post")
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Post implements Serializable{
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	 private Long id;
 	// tên của post title
+	@Column(length = 100000)
 	private String title;
 	
 	// người đăng post
@@ -45,7 +44,9 @@ public class Post implements Serializable{
 	private Boolean isDelete;
 
 	@ToString.Exclude
-	@OneToMany(mappedBy = "post",cascade = CascadeType.ALL,orphanRemoval = true)
+
+
+	@OneToMany(mappedBy = "post")
 	private Set<Tour> tours = new HashSet<>();
 
 	@JsonIgnore
@@ -53,21 +54,24 @@ public class Post implements Serializable{
 	@ToString.Exclude
 	private List< Notification> notifications = new ArrayList<>();
 
-	private String content;
-
 //	 1 post có thể có nhiều ảnh
 	@OneToMany(mappedBy = "post")
 	@ToString.Exclude
 	private List<Image> images;
-	
+
+	@OneToMany(mappedBy = "post", cascade = CascadeType.ALL)
+	@ToString.Exclude
+	private List<Comment> comments ;
+
+	private Boolean isBusiness;
 	// đánh giá của post
 //	private Integer rate;
-
-
 //    public Post(Long id, String title1, User user) {
 //		this.id=id;
 //		this.title = title1;
 //		this.users = user;
 //    }
-	
+	@ToString.Exclude
+	@Enumerated(EnumType.STRING)
+	private State state;
 }

@@ -9,10 +9,7 @@ import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Data
@@ -20,6 +17,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 //@NoArgsConstructor(access=AccessLevel.PRIVATE, force=true)
 @NoArgsConstructor
+//@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Tour implements Serializable {
 
     @Id
@@ -38,6 +36,7 @@ public class Tour implements Serializable {
 
     @ManyToOne
     @JsonIgnore
+    @ToString.Exclude
     @JoinColumn(name = "manager_id")
     private User manager;
 
@@ -51,14 +50,21 @@ public class Tour implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "destination_id")
     )
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<Destination> destination = new HashSet<>();
 
     @ManyToOne
+    @ToString.Exclude
     @JoinColumn(name = "post_id")
     private Post post;
 
-    @JsonIgnore
-    private String image_tour;
+//    @JsonIgnore
+//    private String image_tour;
+
+    @OneToMany(mappedBy = "tour")
+    @ToString.Exclude
+    private List<Image> images;
 
     private Integer quantity;
 
@@ -68,14 +74,13 @@ public class Tour implements Serializable {
 
     private LocalDateTime endTimeTour;
 
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "tour", orphanRemoval = true)
+    @OneToMany( mappedBy = "tour")
     @JsonIgnore
+    @ToString.Exclude
     private List<CartItems> cartItems = new ArrayList<>();
 
     @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL)
-    private List<Comment> comments ;
-
-    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL)
+    @ToString.Exclude
     private List<tourbooking_item> tourbooking_items;
 
 

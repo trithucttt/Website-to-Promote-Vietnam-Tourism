@@ -8,11 +8,13 @@ import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
 @Entity
 @Data
 @Table(name = "destination")
+//@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Destination implements Serializable {
 // điểm đến của các tour
 
@@ -35,6 +37,7 @@ public class Destination implements Serializable {
     @JoinColumn(name = "manager_id")
     @JsonIgnore
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User manager;
 
     @Lob
@@ -44,9 +47,11 @@ public class Destination implements Serializable {
 
     @ManyToMany(mappedBy = "destination")
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<Tour> tours = new HashSet<>();
 
-    //	@ManyToMany
+
     @JsonIgnore
     private String image_destination;
 }

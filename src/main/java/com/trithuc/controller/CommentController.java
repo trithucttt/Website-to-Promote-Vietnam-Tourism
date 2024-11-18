@@ -29,11 +29,11 @@ public class CommentController {
     @Autowired
     private SimpMessageSendingOperations messageSendingOperations;
 
-    @PostMapping(consumes = MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createComment(@RequestPart(value = "commentRequest") String commentRequest,
-                                           @RequestPart(value = "images") List<MultipartFile> images) throws JsonProcessingException {
-        commentService.createComment(commentRequest, images);
-        return ResponseEntity.status(HttpStatus.OK).body("Successfully");
+    @PostMapping(value ="create" ,consumes = MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createComment(@RequestPart(value = "newComment") String newComment,
+                                           @RequestPart(value = "images", required = false) List<MultipartFile> images) throws JsonProcessingException {
+
+        return ResponseEntity.ok(commentService.createComment(newComment, images));
 //       if(comment != null ){
 //           messageSendingOperations.convertAndSend("/topic/comments" + comment.getPostTour().getId(),comment);
 //       }
@@ -51,9 +51,9 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to add reply");
     }
 
-    @GetMapping("list/{postId}/{tourId}")
-    public List<CommentDto> getListComment(@PathVariable Long postId, @PathVariable Long tourId) {
-        return commentService.getListComment(postId, tourId);
+    @GetMapping("list/{postId}")
+    public List<CommentDto> getListComment(@PathVariable Long postId) {
+        return commentService.getListComment(postId);
     }
 
     @GetMapping("image/{commentId}")

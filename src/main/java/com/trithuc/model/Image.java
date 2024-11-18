@@ -28,10 +28,6 @@ public class Image implements Serializable{
 	private String entityType;// loại ảnh
 
 	private String imageUrl;
- 	
-//	@ManyToOne
-//	@JoinColumn(name = "tour_id")
-//	private Tour tour;
 	
 	@ManyToOne
 	@JoinColumn(name = "comment_id")
@@ -43,5 +39,10 @@ public class Image implements Serializable{
 	@ToString.Exclude
 	@JoinColumn(name = "post_id")
 	private Post post;
+
+	@ManyToOne
+	@ToString.Exclude
+	@JoinColumn(name = "tour_id")
+	private Tour tour;
 	
 }

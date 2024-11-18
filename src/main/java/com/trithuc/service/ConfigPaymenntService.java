@@ -1,5 +1,7 @@
 package com.trithuc.service;
 
+import com.trithuc.dto.TourBookingItemDTO;
+import com.trithuc.dto.TourBookingStatsDTO;
 import com.trithuc.dto.VnpPaymentDTO;
 import com.trithuc.request.AddToCartRequest;
 import com.trithuc.request.OrderRequest;
@@ -38,4 +40,20 @@ public interface ConfigPaymenntService {
     ResponseEntity<MessageResponse> GetOrder();
 
     List<Long> GetTourBookingItemIdsWithStatusByBusiness(String username, String status);
+
+    List<TourBookingItemDTO> getBookingsByManagerId(Long managerId);
+
+    void approveBooking(Long bookingId);
+
+    void rejectBooking(Long bookingId);
+
+    Long getCanceledTours(Long businessId);
+
+    Long getCompletedTours(Long businessId);
+
+    Long getUniqueCustomers(Long businessId);
+
+    List<TourBookingStatsDTO> getTotalBookedTours(Long businessId);
+
+    Double getTotalRevenueTours(Long businessId);
 }

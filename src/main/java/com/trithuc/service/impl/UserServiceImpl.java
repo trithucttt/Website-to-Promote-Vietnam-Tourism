@@ -44,6 +44,9 @@ public class UserServiceImpl implements UserService {
     public BCryptPasswordEncoder passwordEncoder;
     @Autowired
     private FileStoreService fileStoreService;
+
+    @Autowired
+    private TravelContentServiceImpl travelContentService;
     @Autowired
     private MailService mailService;
     private final StringRedisTemplate redisTemplate;
@@ -394,11 +397,33 @@ public class UserServiceImpl implements UserService {
      *
      * @param userId Id user
      * @param friendId  Id friend*/
-    public  void addFriend(Long userId, Long friendId){
-//        User user = getUserById(userId);
-//        User friend = getUserById(friendId);
-//        user.getFriends().add(friend);
-//        userRepository.save(user);
+    @Override
+    public  MessageResponse addFriend(Long userId, Long friendId){
+//        // Kiểm tra xem người dùng và người bạn muốn thêm có tồn tại không
+//        Optional<User> userOpt = userRepository.findById(userId);
+//        Optional<User> friendOpt = userRepository.findById(friendId);
+//
+//        if (userOpt.isEmpty() || friendOpt.isEmpty()) {
+//            return travelContentService.setUpResponse("Người dùng hoặc bạn bè không tồn tại","400",null);
+//        }
+//
+//        User user = userOpt.get();
+//        User friend = friendOpt.get();
+//
+//        // Kiểm tra xem mối quan hệ bạn bè đã tồn tại chưa
+//        FriendshipId friendshipId = new FriendshipId(userId, friendId,FriendState.ACCEPTED);
+//        if (friendShipRepository.existsById(friendshipId)) {
+//            return travelContentService.setUpResponse("Đã là bạn bè rồi","200", null);
+//        }
+//
+//        // Tạo mới mối quan hệ bạn bè
+//        FriendshipId requestFriend = new FriendshipId(userId,friendId,FriendState.REQUEST);
+//        Friendship friendship = new Friendship(requestFriend, user, friend);
+//
+//        friendShipRepository.save(friendship);
+//
+//        return travelContentService.setUpResponse("Đã thêm bạn thành công!","200",null);
+        return null;
     }
 
     public  void removeFriend(Long userId, Long friendId){
@@ -431,6 +456,79 @@ public class UserServiceImpl implements UserService {
             return dto;
         }).collect(Collectors.toList());
 
+    }
+
+    @Override
+    public String sendFriendRequest(Long userId, Long friendId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        Optional<User> friendOpt = userRepository.findById(friendId);
+
+        if (userOpt.isEmpty() || friendOpt.isEmpty()) {
+            return "Người dùng hoặc bạn bè không tồn tại";
+        }
+
+        User user = userOpt.get();
+        User friend = friendOpt.get();
+
+        FriendshipId friendshipId = new FriendshipId(userId, friendId);
+
+        if (friendShipRepository.existsById(friendshipId)) {
+            return "Yêu cầu đã tồn tại";
+        }
+
+        // Tạo yêu cầu kết bạn với trạng thái REQUEST
+        Friendship friendship = new Friendship(friendshipId, user, friend, FriendState.REQUEST);
+        friendShipRepository.save(friendship);
+
+        return "Đã gửi yêu cầu kết bạn!";
+    }
+
+    @Override
+    public String acceptFriendRequest(Long userId, Long friendId) {
+        FriendshipId friendshipId = new FriendshipId(userId, friendId);
+        Optional<Friendship> friendshipOpt = friendShipRepository.findById(friendshipId);
+
+        if (friendshipOpt.isEmpty()) {
+            return "Yêu cầu kết bạn không tồn tại";
+        }
+
+        Friendship friendship = friendshipOpt.get();
+        friendship.setFriendState(FriendState.ACCEPTED);
+        friendShipRepository.save(friendship);
+
+        // Tạo bản ghi kết bạn ngược lại nếu chưa tồn tại
+        FriendshipId reciprocalFriendshipId = new FriendshipId(friendId, userId);
+        Optional<Friendship> reciprocalFriendshipOpt = friendShipRepository.findById(reciprocalFriendshipId);
+
+        if (reciprocalFriendshipOpt.isEmpty()) {
+            Optional<User> userOpt = userRepository.findById(userId);
+            Optional<User> friendOpt = userRepository.findById(friendId);
+//            Friendship reciprocalFriendship = reciprocalFriendshipOpt.get();
+            Friendship reciprocalFriendship = new Friendship(reciprocalFriendshipId, friendOpt.get(), userOpt.get(), FriendState.ACCEPTED);
+            friendShipRepository.save(reciprocalFriendship);
+        } else {
+            Friendship reciprocalFriendship = reciprocalFriendshipOpt.get();
+            reciprocalFriendship.setFriendState(FriendState.ACCEPTED);
+            friendShipRepository.save(reciprocalFriendship);
+        }
+
+        return "Yêu cầu kết bạn đã được chấp nhận!";
+    }
+
+    @Override
+    public String rejectFriendRequest(Long userId, Long friendId) {
+        FriendshipId friendshipId = new FriendshipId(userId, friendId);
+        Optional<Friendship> friendshipOpt = friendShipRepository.findById(friendshipId);
+
+        if (friendshipOpt.isEmpty()) {
+            return "Yêu cầu kết bạn không tồn tại";
+        }
+
+        Friendship friendship = friendshipOpt.get();
+        friendship.setFriendState(FriendState.REJECT);
+        friendShipRepository.save(friendship);
+
+        return "Yêu cầu kết bạn đã bị từ chối!";
     }
 }
 

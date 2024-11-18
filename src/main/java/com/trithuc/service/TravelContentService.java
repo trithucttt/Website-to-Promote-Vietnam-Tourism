@@ -2,12 +2,14 @@ package com.trithuc.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.trithuc.dto.DestinationDto;
+import com.trithuc.dto.EditTourDTO;
 import com.trithuc.dto.PostDto;
 import com.trithuc.dto.TourDto;
 import com.trithuc.model.*;
 import com.trithuc.request.AddPostRequest;
 import com.trithuc.request.AddTourRequest;
 import com.trithuc.request.DestinationRequest;
+import com.trithuc.request.EditPostRequest;
 import com.trithuc.response.MessageResponse;
 import com.trithuc.response.PaginationResponse;
 import org.springframework.core.io.Resource;
@@ -21,9 +23,14 @@ import java.util.List;
 public interface TravelContentService {
     List<PostDto> getAllPost();
 
-    ResponseEntity<PaginationResponse> searchAndPaginationPost(String title, int size, int currentPage);
-
     ResponseEntity<PaginationResponse> manualPagination(String title, int size, int currentPage);
+
+//    ResponseEntity<PaginationResponse> manualPagination(String title, int size, int currentPage);
+
+
+    ResponseEntity<PaginationResponse> SearchAndFilterAndPagination(String title, LocalDateTime startTime,Integer quantityStart, Integer quantityEnd,
+                                                                    Double priceStart, Double priceEnd, Double discountStart, Double discountEnd,
+                                                                    Long cityId, String regionName, int size, int currentPage);
 
     PostDto getDetailPost(Long postId);
 
@@ -59,7 +66,7 @@ public interface TravelContentService {
 
     List<PostDto> getPostByUser(Long useId);
 
-    List<Tour> listTourByToken(String username);
+    List<TourDto> listTourByToken(String username);
 
     List<Destination> listDestinationByToken(String username);
 
@@ -74,15 +81,29 @@ public interface TravelContentService {
 
     String createDestination(String name, String address, Long wardId,String description, MultipartFile image, String username);
 
-    MessageResponse createNewTour(String addTourRequest, MultipartFile image) throws JsonProcessingException;
+    MessageResponse updateDestination(String data, MultipartFile image, String username);
+
+    MessageResponse setUpResponse(String message, String responseCode, Object data);
+
+    MessageResponse createNewTour(String addTourRequest, List<MultipartFile> images) throws JsonProcessingException;
 
     ResponseEntity<MessageResponse> createNewPost(AddPostRequest addPostRequest, String username);
 
     MessageResponse deleteTourById(Long tourId);
 
-    TourDto getTourById(Long tourId);
+    EditTourDTO getTourById(Long tourId);
 
     List<TourDto> getToursByPostId(Long postId);
 
     MessageResponse deletePostById(Long postId);
+
+    MessageResponse editBusinessPost(EditPostRequest request);
+
+    MessageResponse editBusinessTour(String editTourRequest, List<MultipartFile> editImages) throws JsonProcessingException;
+
+    MessageResponse createPostNonSale(String data, List<MultipartFile> images) throws JsonProcessingException;
+
+    MessageResponse EditPostNonSale(String data, List<MultipartFile> editImages) throws JsonProcessingException;
+
+    MessageResponse deleteDestinationById(Long destinationId);
 }

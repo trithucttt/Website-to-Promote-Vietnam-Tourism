@@ -24,4 +24,9 @@ public class Friendship {
     @MapsId("friendId")
     @JoinColumn(name = "friend_id")
     private User friend;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "friend_state")
+    private FriendState friendState;
 }

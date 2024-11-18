@@ -1,6 +1,10 @@
 package com.trithuc.controller;
 
+import com.trithuc.dto.TourBookingItemDTO;
+import com.trithuc.dto.TourBookingStatsDTO;
 import com.trithuc.dto.VnpPaymentDTO;
+import com.trithuc.repository.PaymentRepository;
+import com.trithuc.repository.YourBookingRepository;
 import com.trithuc.request.AddToCartRequest;
 import com.trithuc.request.OrderRequest;
 import com.trithuc.response.MessageResponse;
@@ -38,8 +42,8 @@ public class CheckOutController {
 
     @PostMapping( "cart/add")
     public ResponseEntity<MessageResponse> addToCart(@RequestHeader(name = "Authorization") String token,
-                                                     @RequestBody AddToCartRequest addToCartRequest){
-        return configPaymenntService.addToCart(addToCartRequest,token);
+                                                     @RequestBody AddToCartRequest cartItem){
+        return configPaymenntService.addToCart(cartItem,token);
     }
 
     @GetMapping("cart/info")
@@ -58,16 +62,16 @@ public class CheckOutController {
 
     @DeleteMapping("cart/delete/{cartItemId}")
     public ResponseEntity<MessageResponse> deleteCartItem(@PathVariable Long cartItemId){
-        return configPaymenntService.DecrementQuantityCart(cartItemId);
+        return configPaymenntService.deleteItem(cartItemId);
     }
 
     @GetMapping("cart/payment/createUrl")
-    public ResponseEntity<MessageResponse> getUrlPayment(@RequestParam("username") String username,
+    public ResponseEntity<MessageResponse> getUrlPaymentWithVNPay(@RequestParam("username") String username,
                                                          @RequestParam("totalPrice") Double totalPrice) throws UnsupportedEncodingException {
         return configPaymenntService.createUrlPayment(username,totalPrice);
     }
     @PostMapping("cart/payment/process")
-    public ResponseEntity<?> processPaymentResult(@RequestHeader(name = "Authorization") String token,
+    public ResponseEntity<?> processPaymentResultWithVNPay(@RequestHeader(name = "Authorization") String token,
                                                   @RequestBody VnpPaymentDTO requestData) {
         return configPaymenntService.handlePaymentResult(requestData,token);
     }
@@ -101,5 +105,72 @@ public class CheckOutController {
        messageResponse.setData(tourBookingItemIds);
 
         return ResponseEntity.ok(messageResponse);
+    }
+
+    @Autowired
+    private YourBookingRepository yourBookingRepository;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
+
+    @GetMapping("business/revenue/{businessId}")
+    public ResponseEntity<?> getRevenue(@PathVariable Long businessId) {
+        Double totalRevenue = paymentRepository.calculateTotalRevenueByBusiness(businessId);
+        Long totalToursBooked = yourBookingRepository.countToursBookedByBusiness(businessId);
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalRevenue", totalRevenue);
+        stats.put("totalToursBooked", totalToursBooked);
+
+        return ResponseEntity.ok(stats);
+    }
+
+    @GetMapping("manager/{managerId}/bookings")
+    public ResponseEntity<List<TourBookingItemDTO>> getBookingsByManagerId(@PathVariable Long managerId) {
+        List<TourBookingItemDTO> bookings = configPaymenntService.getBookingsByManagerId(managerId);
+        return ResponseEntity.ok(bookings);
+    }
+
+    // API duyệt đơn hàng
+    @PostMapping("bookings/{bookingId}/approve")
+    public ResponseEntity<Void> approveBooking(@PathVariable Long bookingId) {
+        configPaymenntService.approveBooking(bookingId);
+        return ResponseEntity.ok().build();
+    }
+
+    // API từ chối đơn hàng
+    @PostMapping("bookings/{bookingId}/reject")
+    public ResponseEntity<Void> rejectBooking(@PathVariable Long bookingId) {
+        configPaymenntService.rejectBooking(bookingId);
+        return ResponseEntity.ok().build();
+    }
+
+    // API lấy tổng số tour đã được đặt
+    @GetMapping("bookings/total-booked-tours")
+    public List<TourBookingStatsDTO> getTotalBookedTours(@RequestParam Long businessId) {
+        return configPaymenntService.getTotalBookedTours(businessId);
+    }
+
+    @GetMapping("bookings/total-revenue-tours")
+    public Double getTotalRevenueTours(@RequestParam Long businessId) {
+        return configPaymenntService.getTotalRevenueTours(businessId);
+    }
+
+    // API lấy số lượng khách hàng độc đáo
+    @GetMapping("bookings/unique-customers")
+    public Long getUniqueCustomers(@RequestParam Long businessId) {
+        return configPaymenntService.getUniqueCustomers(businessId);
+    }
+
+    // API lấy số lượng tour đã hoàn thành
+    @GetMapping("bookings/completed-tours")
+    public Long getCompletedTours(@RequestParam Long businessId) {
+        return configPaymenntService.getCompletedTours(businessId);
+    }
+
+    // API lấy số lượng tour đã bị hủy
+    @GetMapping("bookings/canceled-tours")
+    public Long getCanceledTours(@RequestParam Long businessId) {
+        return configPaymenntService.getCanceledTours(businessId);
     }
 }

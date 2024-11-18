@@ -36,7 +36,7 @@ public class CommentServiceImpl implements CommentService {
     @Autowired
     private UserRepository userRepository;
     @Autowired
-    private TourRepository tourRepository;
+    private PostRepository postRepository;
     @Autowired
     private SimpMessageSendingOperations messageTemplate;
     @Autowired
@@ -52,18 +52,22 @@ public class CommentServiceImpl implements CommentService {
         CommentRequest request = objectMapper.readValue(addCommentRequest, CommentRequest.class);
 
         Optional<User> currentUser = userRepository.findByUsername(request.getUsername());
-        Optional<Tour> tour = tourRepository.findById(request.getTourId());
-//        PostTour postTour = postTourRepository.findByPostIdAndTourId(request.getPostId(), request.getTourId()).orElse(null);
+        Optional<Post> postOptional = postRepository.findById(request.getPostId());
         if (currentUser.isEmpty()) {
             throw new RuntimeException("User not found");
         }
-        if (tour.isPresent()) {
+        if (postOptional.isPresent()) {
             Comment comment = new Comment();
-            comment.setRating(request.getRating());
             comment.setContent(request.getContent());
-            comment.setTour(tour.get());
+            comment.setPost(postOptional.get());
             comment.setStart_time(LocalDateTime.now());
             comment.setUser(currentUser.get());
+            if (request.isAnonymous()){
+                comment.setState(State.ANONYMOUS);
+            }else {
+                comment.setState(State.PUBLIC);
+            }
+            
             Comment commentSave = commentRepository.save(comment);
 //            System.out.println("get image from comment" + images);
             if (images != null) {
@@ -82,11 +86,13 @@ public class CommentServiceImpl implements CommentService {
                 imageRepository.saveAll(imageList);
             }
 
-            messageResponse.setMessage("Comment success");
+            messageResponse.setMessage("Xong");
             messageResponse.setResponseCode("200");
             return messageResponse;
         } else {
-            throw new RuntimeException("Post id or tour id is incorrect");
+            messageResponse.setMessage("Lỗi");
+            messageResponse.setResponseCode("400");
+            return messageResponse;
         }
     }
 
@@ -97,7 +103,7 @@ public class CommentServiceImpl implements CommentService {
             commentDto.setContent(comment.getContent());
             commentDto.setStartTime(comment.getStart_time());
             commentDto.setId(comment.getId());
-            commentDto.setRating(comment.getRating());
+//            commentDto.setRating(comment.getRating());
             commentDto.setUsernameUserComment(comment.getUser().getUsername());
             List<Image> image = imageRepository.findByCommentId(comment.getId());
             commentDto.setImageComment(image);
@@ -106,13 +112,55 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public List<CommentDto> getListComment(Long postId, Long tourId) {
+    public List<CommentDto> getListComment(Long postId) {
 
-        Optional<Tour> tour = tourRepository.findById(tourId);
-        if (tour.isEmpty()) {
+        Optional<Post> post = postRepository.findById(postId);
+        if (post.isEmpty()) {
             throw new RuntimeException("Post id or tour id is incorrect");
         }
-        return convertComment(commentRepository.findByTourId(tour.get().getId()));
+        List<Comment> comments = commentRepository.findByPostId(post.get().getId());
+        List<CommentDto> commentsDTO = new ArrayList<>();
+        List<Comment> parenComments = comments.stream().filter(comment -> comment.getParent() == null).toList();
+        for (Comment parenComment : parenComments){
+            CommentDto commentDto = convertToDTO(parenComment);
+            commentDto.setReplies(getRepliesRecursive(parenComment, comments));
+            commentsDTO.add(commentDto);
+        }
+        return commentsDTO;
+    }
+
+    private CommentDto convertToDTO(Comment comment){
+        List<Image> images = imageRepository.findByCommentId(comment.getId());
+        return new CommentDto(
+                comment.getId(),
+                comment.getUser().getLastname()+ " " + comment.getUser().getFirstname(),
+                comment.getUser().getProfileImage(),
+                comment.getContent(),
+                comment.getStart_time(),
+//                comment.getRating(),
+                comment.getUser().getUsername(),
+                new ArrayList<>(images),
+                new ArrayList<>(),
+                getStateComment(comment.getState())
+        );
+    }
+
+    private boolean getStateComment(State state) {
+        return state == State.ANONYMOUS;
+    }
+
+    private List<CommentDto> getRepliesRecursive(Comment parentComment, List<Comment> allComments){
+        List<CommentDto> replies = new ArrayList<>();
+        for (Comment reply : allComments){
+            if (reply.getParent() != null && reply.getParent().getId().equals(parentComment.getId())){
+                CommentDto replyDTO = convertToDTO(reply);
+                // su dung de quy de tim comment phan cap
+                replyDTO.setReplies(getRepliesRecursive(reply, allComments));
+                replies.add(replyDTO);
+            }
+
+        }
+        return replies;
     }
 
     @Override
@@ -139,7 +187,7 @@ public class CommentServiceImpl implements CommentService {
         repComment.setContent(content);
         repComment.setStart_time(LocalDateTime.now());
         repComment.setParent(parentComment);
-        repComment.setTour(parentComment.getTour());
+        repComment.setPost(parentComment.getPost());
         parentComment.getReplies().add(repComment);
         return commentRepository.save(repComment);
 
@@ -166,13 +214,13 @@ public class CommentServiceImpl implements CommentService {
         imageRepository.deleteAll(imageList);
 
         commentRepository.deleteById(commentId);
-        return ResponseEntity.status(HttpStatus.OK).body("200");
+        return ResponseEntity.ok("200");
     }
 
 
     @Override
     public void sendCommentUpdate(Comment comment) {
-        messageTemplate.convertAndSend("/topic/comments" + comment.getTour().getId(), comment);
+        messageTemplate.convertAndSend("/topic/comments" + comment.getPost().getId(), comment);
     }
 
     @Override
@@ -191,21 +239,18 @@ public class CommentServiceImpl implements CommentService {
         Comment comment = commentOptional.get();
         List<Image> imageList = imageRepository.findByCommentId(commentId);
 //        System.out.println("get image from comment imageList" + imageList);
-        List<Long> currentImageId = imageList.stream()
-                .map(Image::getId)
+        List<String> updateImageUrl = request.getUpdateImageUrl();
+        List<Image> deleteImageUrl = imageList.stream()
+                .filter(image -> !updateImageUrl.contains(image.getImageUrl()))
                 .toList();
-//        System.out.println("get image from comment currentImageId" + currentImageId);
-        List<Long> requestImageId = request.getNewImageIds();
-        List<Long> idImageToDelete = currentImageId.stream()
-                .filter(id -> !requestImageId.contains(id))
-                .toList();
-        System.out.println("get image from comment idImageToDelete" + idImageToDelete);
-        if (!idImageToDelete.isEmpty()) {
-            imageList.removeIf(image -> idImageToDelete.contains(image.getId()));
-            imageRepository.deleteAllById(idImageToDelete);
-//
+
+        if (!deleteImageUrl.isEmpty()) {
+            List<Long> deleteImageIds = deleteImageUrl.stream()
+                    .map(Image::getId)
+                    .toList();
+            imageRepository.deleteAllById(deleteImageIds);
         }
-        comment.setRating(request.getEditRating());
+
         comment.setContent(request.getEditContent());
         Comment saveComment = commentRepository.save(comment);
 //        System.out.println("get image from comment" + editImage);
@@ -218,15 +263,17 @@ public class CommentServiceImpl implements CommentService {
 
                 try {
                     newCommentImage.setImageUrl(fileStoreService.saveImageCloudinary(image));
-                    System.out.println("get image from comment" + fileStoreService.saveImageCloudinary(image));
+//                    System.out.println("get image from comment" + fileStoreService.saveImageCloudinary(image));
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
                 newImageList.add(newCommentImage);
             });
             imageRepository.saveAll(newImageList);
+            return "200";
+        }else{
+            return "200";
         }
 
-        return "200";
     }
 }

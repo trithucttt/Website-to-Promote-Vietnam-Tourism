@@ -12,8 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class AddPostRequest {
     private String titlePost;
-    private LocalDateTime startTimePost;
-    private LocalDateTime endTimePost;
-    private List<AddPostTourRequest> addPostTourRequests;
-
+    private LocalDateTime endDay;
+//    private List<AddPostTourRequest> addPostTourRequests;
+    private List<Long> tourId;
 }

@@ -12,7 +12,10 @@ import java.util.List;
 @Repository
 public interface tourbooking_itemRepository extends JpaRepository<tourbooking_item,Long> {
     List<tourbooking_item> findByYourbooking(YourBooking yourBooking);
+    @Query("SELECT ti FROM tourbooking_item ti JOIN ti.tour t JOIN t.manager m WHERE m.id = :businessId AND ti.status = 'PROCESS'")
+    List<tourbooking_item> findPendingBookingsByBusiness(@Param("businessId") Long businessId);
 
+    List<tourbooking_item> findByTourId(Long tourId);
     @Query("SELECT tbi.id AS tourBookingItemId " +
             "FROM tourbooking_item tbi " +
             "JOIN tbi.yourbooking yb " +

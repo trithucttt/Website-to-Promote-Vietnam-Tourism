@@ -1,7 +1,6 @@
 package com.trithuc.service.impl;
 
-import com.trithuc.dto.ApproveOrder;
-import com.trithuc.dto.VnpPaymentDTO;
+import com.trithuc.dto.*;
 import com.trithuc.model.*;
 import com.trithuc.repository.*;
 import com.trithuc.request.AddToCartRequest;
@@ -10,6 +9,7 @@ import com.trithuc.response.*;
 import com.trithuc.service.ConfigPaymenntService;
 import com.trithuc.service.MailService;
 import com.trithuc.service.UserService;
+import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -32,12 +32,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
 
     private final StringRedisTemplate redisTemplate;
-    private static final String tmnCode = "BY5CIN2M";
+    private static final String tmnCode = "ALK2F9GM";
     private static final String version = "2.1.0";
     private static final String command = "pay";
     private static final String orderType = "other";
@@ -65,6 +66,9 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
     private WardRepository wardRepository;
     @Autowired
     private tourbooking_itemRepository orderItemsRepository;
+
+    @Autowired
+    private tourbooking_itemRepository tourBookingItemRepository;
 
     public ConfigPaymentServiceImpl(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -161,7 +165,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             }
         }
         String queryUrl = query.toString();
-        String secureHas = hmacSHA512("WMSXYGCIRXCTNIBMUMWGDCFBVZMNZEPW", hasData.toString());
+        String secureHas = hmacSHA512("FOYAUJQ53LRUY186CI1I9SVR0VXT0UYW", hasData.toString());
         queryUrl += "&vnp_SecureHash=" + secureHas;
         String paymentUrl = paymentDomain + "?" + queryUrl;
         MessageResponse messageResponse = new MessageResponse();
@@ -294,7 +298,10 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             tourInCart.setPostTourId(tour.getId());
             tourInCart.setPrice(tour.getPrice());
             tourInCart.setTourName(tour.getTitle());
-            tourInCart.setTourImageName(tour.getImage_tour());
+            List<String> imageUrl = tour.getImages().stream()
+                    .map(Image::getImageUrl) // Tạo đối tượng ImageDto
+                    .toList();
+            tourInCart.setImageTourUrl(imageUrl);
             tourInCart.setStartTime(tour.getStartTimeTour());
             tourInCart.setEndTime(tour.getEndTimeTour());
             tourInCart.setFullNameSupplier(tour.getManager().getLastname() + " " + tour.getManager().getFirstname());
@@ -315,11 +322,11 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             CartItems cartItems = cartItemsOptional.get();
             cartItems.setQuantity(cartItems.getQuantity() + 1);
             cartItemsRepository.save(cartItems);
-            messageResponse.setMessage("Increase Successfully");
+            messageResponse.setMessage("Tăng số lượng chuyến đi thành công");
             messageResponse.setResponseCode("200");
             return ResponseEntity.ok(messageResponse);
         }
-        messageResponse.setMessage("Item Not Found");
+        messageResponse.setMessage("Không tìm thấy chuyến đi nào như vậy trong giỏ hàng");
         messageResponse.setResponseCode("404");
         return ResponseEntity.ok(messageResponse);
     }
@@ -333,18 +340,18 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             if (cartItems.getQuantity() > 1) {
                 cartItems.setQuantity(cartItems.getQuantity() - 1);
                 cartItemsRepository.save(cartItems);
-                messageResponse.setMessage("Decrease Successfully");
+                messageResponse.setMessage("Giảm số lượng thành công");
                 messageResponse.setResponseCode("200");
                 return ResponseEntity.ok(messageResponse);
             } else {
                 cartItemsRepository.deleteById(cartItemId);
-                messageResponse.setMessage("Delete Item Successfully");
+                messageResponse.setMessage("Đã xóa chuyến đi khỏi giỏ hàng!");
                 messageResponse.setResponseCode("200");
                 return ResponseEntity.ok(messageResponse);
             }
 
         } else {
-            messageResponse.setMessage("Item Not Found");
+            messageResponse.setMessage("Không tìm thấy chuyến đi nào như vậy trong giỏ hàng");
             messageResponse.setResponseCode("404");
             return ResponseEntity.ok(messageResponse);
         }
@@ -353,8 +360,14 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
     @Override
     public ResponseEntity<MessageResponse> deleteItem(Long cartItemId) {
         MessageResponse messageResponse = new MessageResponse();
+        Optional<CartItems> cartItems = cartItemsRepository.findById(cartItemId);
+        if (cartItems.isEmpty()){
+            messageResponse.setMessage("Xóa chuyến đi thất bại!");
+            messageResponse.setResponseCode("400");
+            return ResponseEntity.ok(messageResponse);
+        }
         cartItemsRepository.deleteById(cartItemId);
-        messageResponse.setMessage("Delete Item Successfully");
+        messageResponse.setMessage("Đã xóa chuyến đi khỏi giỏ hàng");
         messageResponse.setResponseCode("200");
         return ResponseEntity.ok(messageResponse);
     }
@@ -373,7 +386,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
         for (CartItems cartItems : cartItemsList) {
             tourbooking_item item = new tourbooking_item();
             item.setQuantity(cartItems.getQuantity());
-            item.setStatus("process");
+            item.setStatus("PROCESS");
             item.setPrice(cartItems.getTour().getPrice());
             item.setYourbooking(yourBooking);
 
@@ -418,11 +431,11 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             List<CartItems> cartItemsList = cartItemsRepository.findAllById(orderRequest.getCartItemId());
             cartItemsRepository.deleteAll(cartItemsList);
             messageResponse.setResponseCode("200");
-            messageResponse.setMessage("Process receipt Successfully");
+            messageResponse.setMessage("Xử lý đơn hàng của bạn thành công");
             return ResponseEntity.ok(messageResponse);
         } else {
             messageResponse.setResponseCode("400");
-            messageResponse.setMessage("Check out failed");
+            messageResponse.setMessage("Quá trình thanh toán thất bại");
             return ResponseEntity.ok(messageResponse);
         }
 
@@ -520,5 +533,104 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
     @Override
     public List<Long> GetTourBookingItemIdsWithStatusByBusiness(String username, String status) {
         return orderItemsRepository.findTourBookingItemIdWithStatusByUsernameBusiness(username, status);
+    }
+
+
+    @Override
+    public List<TourBookingItemDTO> getBookingsByManagerId(Long managerId) {
+        List<Tour> tours = tourRepository.findByManagerId(managerId); // Lấy danh sách tour theo managerId
+        List<tourbooking_item> bookings = new ArrayList<>();
+
+        for (Tour tour : tours) {
+            bookings.addAll(tourBookingItemRepository.findByTourId(tour.getId()));
+        }
+
+        return bookings.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void approveBooking(Long bookingId) {
+        tourbooking_item booking = tourBookingItemRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id " + bookingId));
+        booking.setStatus("CONFIRM");
+        tourBookingItemRepository.save(booking);
+    }
+
+    @Override
+    public void rejectBooking(Long bookingId) {
+        tourbooking_item booking = tourBookingItemRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id " + bookingId));
+        booking.setStatus("REJECT");
+        tourBookingItemRepository.save(booking);
+    }
+
+    private TourBookingItemDTO convertToDTO(tourbooking_item booking) {
+        return new TourBookingItemDTO(
+                booking.getId(),
+                booking.getTour().getTitle(),
+                booking.getYourbooking().getUser().getFirstname()+ " " + booking.getYourbooking().getUser().getLastname(), // lấy tên khách hàng
+                booking.getQuantity(),
+                booking.getPrice(),
+                booking.getStatus()
+        );
+    }
+
+
+    @Override
+    public List<TourBookingStatsDTO> getTotalBookedTours(Long businessId) {
+        //  Lấy danh sách tour của doanh nghiệp
+        List<Tour> tours = tourRepository.findByManagerId(businessId); // Giả định rằng `businessId` tương đương với `managerId`.
+
+      List<TourBookingStatsDTO> bookingStatsDTO = new ArrayList<>();
+
+      for (Tour tour : tours){
+          List<tourbooking_item> bookingItems = tourBookingItemRepository.findByTourId(tour.getId());
+          long bookedQuantity = bookingItems.stream().mapToLong(tourbooking_item::getQuantity).sum();
+          TourBookingStatsDTO statsDTO = new TourBookingStatsDTO();
+          statsDTO.setId(tour.getId());
+          statsDTO.setTitle(tour.getTitle());
+          statsDTO.setPrice(tour.getPrice());
+          statsDTO.setQuantity(tour.getQuantity());
+          statsDTO.setBookedQuantity(bookedQuantity);
+
+          bookingStatsDTO.add(statsDTO);
+      }
+      return bookingStatsDTO;
+    }
+
+    @Override
+    public Double getTotalRevenueTours(Long businessId) {
+        List<Tour> tours = tourRepository.findByManagerId(businessId);
+        // Bước 2: Khởi tạo tổng doanh thu
+        double totalRevenue = 0.0;
+
+        // Bước 3: Duyệt qua danh sách tour
+        for (Tour tour : tours) {
+            // Lấy danh sách booking items cho tour
+            List<tourbooking_item> bookings = tourBookingItemRepository.findByTourId(tour.getId());
+
+            // Bước 4: Tính doanh thu cho từng booking item
+            for (tourbooking_item booking : bookings) {
+                totalRevenue += booking.getPrice() * booking.getQuantity(); // Giá * Số lượng
+            }
+        }
+
+        return  totalRevenue;
+
+    }
+
+    @Override
+    public Long getUniqueCustomers(Long businessId) {
+        return yourBookingRepository.countUniqueCustomersByBusiness(businessId);
+    }
+    @Override
+    public Long getCompletedTours(Long businessId) {
+        return yourBookingRepository.countCompletedToursByBusiness(businessId);
+    }
+    @Override
+    public Long getCanceledTours(Long businessId) {
+        return yourBookingRepository.countCanceledToursByBusiness(businessId);
     }
 }

@@ -87,7 +87,23 @@ public class FileStoreServiceImpl implements FileStoreService {
         }
     }
     @Override
-    public void deleteOldImage(String type, Long identifier) {
+    public void deleteOldImage(String type,String oldImageName) {
+        try {
+            // Tạo đường dẫn tới thư mục chứa ảnh
+            Path destinationDirectory = this.rootLocation.resolve(type);
+            if (Files.exists(destinationDirectory)) {
+
+
+                Path oldImagePath = destinationDirectory.resolve(oldImageName);
+                if (Files.exists(oldImagePath)) {
+                    // Nếu ảnh cũ tồn tại, xóa nó
+                    Files.delete(oldImagePath);
+                    System.out.println("Successfully deleted old image: " + oldImageName);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete old image", e);
+        }
     }
     @Override
     public String saveImageCloudinary(MultipartFile file) throws IOException{

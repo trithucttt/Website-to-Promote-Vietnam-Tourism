@@ -15,7 +15,7 @@ public interface FileStoreService {
 
     Resource loadImage(String filename, String type);
 
-    void deleteOldImage(String type, Long identifier);
+    void deleteOldImage(String type, String imageName);
 
     String saveImageCloudinary(MultipartFile file) throws IOException;
 

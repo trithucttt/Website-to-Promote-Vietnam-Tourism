@@ -19,7 +19,7 @@ public interface CommentService {
     MessageResponse createComment(String addCommentRequest, List<MultipartFile> images) throws JsonProcessingException;
 
 
-    List<CommentDto> getListComment(Long postId, Long tourId);
+    List<CommentDto> getListComment(Long postId);
 
     List<Image> getImageByComment(Long commentId);
 

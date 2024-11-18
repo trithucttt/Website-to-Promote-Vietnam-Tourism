@@ -36,4 +36,37 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post> findAverageTourPriceOrderByAsc();
 
     List<Post> findAllByTitleLikeIgnoreCaseAndIsDeleteFalse(String title);
+
+    @Query(value = "SELECT DISTINCT p.* " +
+            "FROM post p " +
+            "LEFT JOIN tour t ON p.id = t.post_id " +
+            "LEFT JOIN destination_in_tour td ON t.id = td.tour_id " +
+            "LEFT JOIN destination d ON td.destination_id = d.id " +
+            "LEFT JOIN ward w ON d.ward_id = w.id " +
+            "LEFT JOIN districts dis ON w.district_id = dis.id " +
+            "LEFT JOIN provinces c ON dis.city_id = c.id " +
+            "LEFT JOIN administrative_regions ar ON c.administrative_regions_id = ar.id " +
+            "WHERE p.is_delete = FALSE " +
+            "AND (p.title LIKE %:title% OR :title IS NULL) " +
+            "AND (p.start_time >= :startTime OR :startTime IS NULL) " +
+            "AND (t.quantity BETWEEN :quantityStart AND :quantityEnd OR :quantityStart  IS NULL OR :quantityEnd IS NULL) " +
+            "AND (t.price BETWEEN :priceStart AND :priceEnd OR :priceStart  IS NULL OR :priceEnd IS NULL) " +
+            "AND (t.discount BETWEEN :discountStart AND :discountEnd OR :discountStart IS NULL OR :discountEnd IS NULL) " +
+            "AND (c.id = :cityId OR :cityId IS NULL) " +
+            "AND (ar.name LIKE %:regionName% OR :regionName IS NULL)", nativeQuery = true)
+    List<Post> searchPosts(
+            @Param("title") String title,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("quantityStart") Integer quantityStart,
+            @Param("quantityEnd") Integer quantityEnd,
+            @Param("priceStart") Double priceStart,
+            @Param("priceEnd") Double priceEnd,
+            @Param("discountStart") Double discountStart,
+            @Param("discountEnd") Double discountEnd,
+            @Param("cityId") Long cityId,
+            @Param("regionName") String regionName);
+
+
+
+//             "ORDER BY p.start_time DESC
 }

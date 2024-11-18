@@ -10,7 +10,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EditCommentRequest {
+
     private String editContent;
-    private Short editRating;
-    private List<Long> newImageIds;
+    private List<String> updateImageUrl;
 }

@@ -1,6 +1,7 @@
 package com.trithuc.config;
 
 import java.security.Key;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +39,7 @@ public class JWTTokenUtil {
 
     @Value("${jwt.secrect}")
     private static String secrect;
-    @Value("${jwt.expiration}0")
+    @Value("${jwt.expiration}")
     private Long expiration;
 
     // retrieve username from jwt token
@@ -148,13 +149,16 @@ public class JWTTokenUtil {
 
     private String doGenerateToken(Map<String, Object> claims, String subject, String roleUser, Long userId) {
         Date now = new Date();
-        Date validity = new Date(now.getTime() + expiration * 1000000000);
-
+        Date validity = new Date(now.getTime() + expiration * 1000);
+        LocalDateTime createAt = LocalDateTime.now();
+        LocalDateTime exp = createAt.plusSeconds(expiration);
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
                 .claim("role", roleUser)
                 .claim("userId",userId)
+//                .claim("createAt",createAt)
+//                .claim("expiration",exp)
                 .setIssuedAt(now)
                 .setExpiration(validity)
                 .signWith(SECRET_KEY, SignatureAlgorithm.HS256)

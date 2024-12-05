@@ -15,6 +15,7 @@ import com.trithuc.response.Friends;
 import com.trithuc.response.MessageResponse;
 import com.trithuc.service.FileStoreService;
 import com.trithuc.service.MailService;
+import com.trithuc.service.NotificationService;
 import com.trithuc.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -27,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -44,6 +46,9 @@ public class UserServiceImpl implements UserService {
     public BCryptPasswordEncoder passwordEncoder;
     @Autowired
     private FileStoreService fileStoreService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Autowired
     private TravelContentServiceImpl travelContentService;
@@ -220,12 +225,12 @@ public class UserServiceImpl implements UserService {
                 user.get().setFirstname(infoUserRequest.getFirstName());
                 user.get().setLastname(infoUserRequest.getLastName());
                 userRepository.save(user.get());
-                return "Save info User successfully";
+                return "Cập nhật thông tin cá nhân Thành công";
             } else {
-                return "User not found";
+                return "Không tìm thấy người dùng";
             }
         } else {
-            return "Missing username user";
+            return "Thông tin  người dùng bị mất";
         }
 
     }
@@ -242,11 +247,22 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public String getCurrentAvatarUser(String token) {
+    public Map<String, String> getCurrentUser(String token) {
+        // Lấy username từ token
         String username = Authentication(token);
+
+        // Tìm người dùng trong cơ sở dữ liệu bằng username
         Optional<User> user = userRepository.findByUsername(username);
-        return user.map(User::getProfileImage).orElse(null);
+
+        // Nếu người dùng tồn tại, lấy avatar và full name (họ và tên)
+        return user.map(u -> {
+            Map<String, String> userInfo = new HashMap<>();
+            userInfo.put("fullName", u.getFirstname() + " " + u.getLastname());
+            userInfo.put("avatar", u.getProfileImage());
+            return userInfo;
+        }).orElse(null);  // Nếu không tìm thấy người dùng, trả về null
     }
+
 
     @Override
     public String Authentication(String token) {
@@ -356,14 +372,14 @@ public class UserServiceImpl implements UserService {
         MessageResponse messageResponse = new MessageResponse();
         if (userOptional.isEmpty()) {
             messageResponse.setResponseCode("404");
-            messageResponse.setMessage("User not Found");
+            messageResponse.setMessage("Không tìm thấy người dùng");
             return ResponseEntity.ok(messageResponse);
         }
         String otpCode = initTxRef();
         redisTemplate.opsForValue().set(email, otpCode, 15, TimeUnit.MINUTES);
         mailService.sendOtpEmail(email, otpCode);
         messageResponse.setResponseCode("200");
-        messageResponse.setMessage("Send Otp Code successfully please check your mail");
+        messageResponse.setMessage("Gửi mã Otp thành công vui lòng kiểm tra email của bạn");
         return ResponseEntity.ok(messageResponse);
     }
 
@@ -373,7 +389,7 @@ public class UserServiceImpl implements UserService {
         String oldCode = redisTemplate.opsForValue().get(email);
         if (otpCodeValid != null && otpCodeValid.equals(oldCode)) {
             messageResponse.setResponseCode("200");
-            messageResponse.setMessage("Password has been reissued, please check your email");
+            messageResponse.setMessage("Mật khẩu đã được cấp lại, vui lòng kiểm tra email của bạn");
             Optional<User> userOptional = userRepository.findByEmail(email);
             String newPassword = generateRandomPassword(10);
             userOptional.get().setPassword(passwordEncoder.encode(newPassword));
@@ -382,7 +398,7 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.ok(messageResponse);
         }
         messageResponse.setResponseCode("400");
-        messageResponse.setMessage("Missing Otp Code or OtpCode invalid");
+        messageResponse.setMessage("Mã Otp bị thiếu hoặc OtpCode không hợp lệ");
         return ResponseEntity.ok(messageResponse);
     }
 
@@ -459,12 +475,27 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public String sendFriendRequest(Long userId, Long friendId) {
+    public List<Friends> getRequestFriends(Long userId) {
+        User user = getUserById(userId);
+        List<Long> friendIds = friendShipRepository.findFriendIdsByUserIdAndAndFriendState_Request(userId);
+        List<User> users = userRepository.findAllById(friendIds);
+        return users.stream().map(friend -> {
+            Friends dto = new Friends();
+            dto.setUserId(friend.getId());
+            dto.setFullNameUser(friend.getLastname() + " " + friend.getFirstname());
+            dto.setAvatar(friend.getProfileImage());
+            return dto;
+        }).collect(Collectors.toList());
+
+    }
+
+    @Override
+    public MessageResponse sendFriendRequest(Long userId, Long friendId) {
         Optional<User> userOpt = userRepository.findById(userId);
         Optional<User> friendOpt = userRepository.findById(friendId);
 
         if (userOpt.isEmpty() || friendOpt.isEmpty()) {
-            return "Người dùng hoặc bạn bè không tồn tại";
+            return travelContentService.setUpResponse("Người dùng hoặc bạn bè không tồn tại","404",null);
         }
 
         User user = userOpt.get();
@@ -473,23 +504,36 @@ public class UserServiceImpl implements UserService {
         FriendshipId friendshipId = new FriendshipId(userId, friendId);
 
         if (friendShipRepository.existsById(friendshipId)) {
-            return "Yêu cầu đã tồn tại";
+            return travelContentService.setUpResponse("Yêu cầu đã tồn tại","300",null);
         }
 
         // Tạo yêu cầu kết bạn với trạng thái REQUEST
-        Friendship friendship = new Friendship(friendshipId, user, friend, FriendState.REQUEST);
+        Friendship friendship = new Friendship(friendshipId, user, friend, FriendState.REQUEST,null);
         friendShipRepository.save(friendship);
-
-        return "Đã gửi yêu cầu kết bạn!";
+        // Tạo thông báo gửi cho người dùng
+        Notification notification = new Notification();
+        notification.setMessage(user.getFirstname()+ " " + user.getLastname() + " đã gửi yêu cầu kết bạn");
+        notification.setReceiver(friend);
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setRead(false);
+        notification.setRelatedFriendship(friendship);
+        notificationService.saveNotificationForAddFriend(notification);
+        notificationService.sendNotification(friend,notification);
+        return travelContentService.setUpResponse("Đã gửi yêu cầu kết bạn!","200",null);
     }
 
+    /**
+     * Hàm đồng ý lời mời kết bạn của người dùng dựa trên ID của người nhận và người gửi.
+     * @param userId :ID của người gửi yêu cầu kết bạn trước đó.
+     * @param friendId :ID của người nhận yêu cầu kết bạn.
+     * */
     @Override
-    public String acceptFriendRequest(Long userId, Long friendId) {
+    public MessageResponse acceptFriendRequest(Long userId, Long friendId) {
         FriendshipId friendshipId = new FriendshipId(userId, friendId);
         Optional<Friendship> friendshipOpt = friendShipRepository.findById(friendshipId);
 
         if (friendshipOpt.isEmpty()) {
-            return "Yêu cầu kết bạn không tồn tại";
+            return travelContentService.setUpResponse("Yêu cầu kết bạn không tồn tại","404",null);
         }
 
         Friendship friendship = friendshipOpt.get();
@@ -504,7 +548,7 @@ public class UserServiceImpl implements UserService {
             Optional<User> userOpt = userRepository.findById(userId);
             Optional<User> friendOpt = userRepository.findById(friendId);
 //            Friendship reciprocalFriendship = reciprocalFriendshipOpt.get();
-            Friendship reciprocalFriendship = new Friendship(reciprocalFriendshipId, friendOpt.get(), userOpt.get(), FriendState.ACCEPTED);
+            Friendship reciprocalFriendship = new Friendship(reciprocalFriendshipId, friendOpt.get(), userOpt.get(), FriendState.ACCEPTED,null);
             friendShipRepository.save(reciprocalFriendship);
         } else {
             Friendship reciprocalFriendship = reciprocalFriendshipOpt.get();
@@ -512,23 +556,81 @@ public class UserServiceImpl implements UserService {
             friendShipRepository.save(reciprocalFriendship);
         }
 
-        return "Yêu cầu kết bạn đã được chấp nhận!";
+        // Tạo thông báo gửi cho người dùng
+        // trả thông báo cho user yêu cầu kết bạn trước đó
+        User userResponse = findUserById(friendId);
+        User userReceiveResponse = findUserById(userId);
+        Notification notification = new Notification();
+        notification.setMessage(userResponse.getFirstname()+ " " + userResponse.getLastname() + " đã đồng ý kết bạn với bạn");
+        notification.setReceiver(userReceiveResponse);
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setRead(false);
+        notification.setRelatedFriendship(friendship);
+        notificationService.saveNotificationForAddFriend(notification);
+        notificationService.sendNotification(userReceiveResponse,notification);
+
+        return travelContentService.setUpResponse("Yêu cầu kết bạn đã được chấp nhận!","200",null);
     }
 
     @Override
-    public String rejectFriendRequest(Long userId, Long friendId) {
+    public MessageResponse rejectFriendRequest(Long userId, Long friendId) {
         FriendshipId friendshipId = new FriendshipId(userId, friendId);
         Optional<Friendship> friendshipOpt = friendShipRepository.findById(friendshipId);
 
         if (friendshipOpt.isEmpty()) {
-            return "Yêu cầu kết bạn không tồn tại";
+            return travelContentService.setUpResponse("Yêu cầu kết bạn không tồn tại","404",null);
         }
 
         Friendship friendship = friendshipOpt.get();
         friendship.setFriendState(FriendState.REJECT);
         friendShipRepository.save(friendship);
 
-        return "Yêu cầu kết bạn đã bị từ chối!";
+        // Tạo thông báo gửi cho người dùng
+        // trả thông báo cho user yêu cầu kết bạn trước đó
+        User userResponse = findUserById(friendId);
+        User userReceiveResponse = findUserById(userId);
+        Notification notification = new Notification();
+        notification.setMessage(userResponse.getFirstname()+ " " + userResponse.getLastname() + " đã từ chối kết bạn với bạn");
+        notification.setReceiver(userReceiveResponse);
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setRead(false);
+        notification.setRelatedFriendship(friendship);
+        notificationService.saveNotificationForAddFriend(notification);
+        notificationService.sendNotification(userReceiveResponse,notification);
+
+        return travelContentService.setUpResponse("Yêu cầu kết bạn đã bị từ chối!","404",null);
     }
+
+    @Override
+    @Cacheable(value = "otpCode", key = "#email")
+    public ResponseEntity<MessageResponse> registerSubmitMail(String email) {
+            Optional<User> userOptional = userRepository.findByEmail(email);
+
+            MessageResponse messageResponse = new MessageResponse();
+            if (userOptional.isEmpty()) {
+                String otpCode = initTxRef();
+                redisTemplate.opsForValue().set(email, otpCode, 15, TimeUnit.MINUTES);
+                mailService.sendOtpEmail(email, otpCode);
+                messageResponse.setResponseCode("200");
+                messageResponse.setMessage("Gửi mã Otp thành công vui lòng kiểm tra email của bạn");
+                return ResponseEntity.ok(messageResponse);
+
+            }
+        messageResponse.setResponseCode("409");
+        messageResponse.setMessage("Email này đã được sử dụng vui lòng dùng email khác");
+        return ResponseEntity.ok(messageResponse);
+        }
+
+    @Override
+    public ResponseEntity<MessageResponse> registerCheckCode(String email, String otpCode) {
+
+        String oldCode = redisTemplate.opsForValue().get(email);
+        if (otpCode != null && otpCode.equals(oldCode)) {
+
+            return ResponseEntity.ok(new MessageResponse("200","Đã xác thực email thành công",null));
+        }
+        return ResponseEntity.ok(new MessageResponse("400","Mã Otp bị thiếu hoặc OtpCode không hợp lệ",null));
+    }
+
 }
 

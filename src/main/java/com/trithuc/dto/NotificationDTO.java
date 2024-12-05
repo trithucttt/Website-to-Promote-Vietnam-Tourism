@@ -18,6 +18,7 @@ public class NotificationDTO {
 //    private Long relatedCommentId;
 //    private Long relatedPostId;
 
-    private Long userId;
+    private Long receiverId;
     private String userName;
+    private Long relatedFriendShipId;
 }

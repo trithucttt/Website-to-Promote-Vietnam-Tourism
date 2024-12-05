@@ -1,10 +1,12 @@
 package com.trithuc.service;
 
+import com.trithuc.dto.RevenueStatisticsDTO;
 import com.trithuc.dto.TourBookingItemDTO;
 import com.trithuc.dto.TourBookingStatsDTO;
 import com.trithuc.dto.VnpPaymentDTO;
 import com.trithuc.request.AddToCartRequest;
 import com.trithuc.request.OrderRequest;
+import com.trithuc.request.ZaloPayRequest;
 import com.trithuc.response.MessageResponse;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,8 @@ public interface ConfigPaymenntService {
     ResponseEntity<MessageResponse> createUrlPayment(String username, Double totalPrice) throws UnsupportedEncodingException;
 
     ResponseEntity<?> handlePaymentResult(VnpPaymentDTO requestData, String token);
+
+    MessageResponse createOrder(ZaloPayRequest request) throws Exception;
 
     ResponseEntity<MessageResponse> addToCart(AddToCartRequest addToCartRequest, String token);
 
@@ -56,4 +60,6 @@ public interface ConfigPaymenntService {
     List<TourBookingStatsDTO> getTotalBookedTours(Long businessId);
 
     Double getTotalRevenueTours(Long businessId);
+
+    List<RevenueStatisticsDTO> getRevenueStatistics(String startDate, String endDate);
 }

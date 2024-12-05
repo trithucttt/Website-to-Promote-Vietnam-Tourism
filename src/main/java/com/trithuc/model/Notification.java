@@ -46,4 +46,13 @@ public class Notification implements Serializable {
 
     private LocalDateTime createdAt;
 
+    @ManyToOne
+    @ToString.Exclude
+    @JoinColumns({
+            @JoinColumn(name = "user_id", referencedColumnName = "user_id"),
+            @JoinColumn(name = "friend_id", referencedColumnName = "friend_id")
+    })
+    private Friendship relatedFriendship;
+
+
 }

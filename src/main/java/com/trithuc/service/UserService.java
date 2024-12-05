@@ -28,7 +28,7 @@ public interface UserService {
 
     User getCurrentFullNameUser(String token);
 
-    String getCurrentAvatarUser(String token);
+    Map<String,String> getCurrentUser(String token);
 
     public String Authentication(String token);
 
@@ -49,9 +49,15 @@ public interface UserService {
 
     MessageResponse addFriend(Long userId, Long friendId);
 
-    String sendFriendRequest(Long userId, Long friendId);
+    List<Friends> getRequestFriends(Long userId);
 
-    String acceptFriendRequest(Long userId, Long friendId);
+    MessageResponse sendFriendRequest(Long userId, Long friendId);
 
-    String rejectFriendRequest(Long userId, Long friendId);
+    MessageResponse acceptFriendRequest(Long userId, Long friendId);
+
+    MessageResponse rejectFriendRequest(Long userId, Long friendId);
+
+    ResponseEntity<MessageResponse> registerSubmitMail(String email);
+
+    ResponseEntity<MessageResponse> registerCheckCode(String email, String otpCode);
 }

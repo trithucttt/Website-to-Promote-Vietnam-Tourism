@@ -13,9 +13,23 @@ import java.util.Optional;
 
 @Repository
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
-    @Query("SELECT cr.id, cr.users, cr.messages FROM ChatRoom cr JOIN cr.users u WHERE :user1 MEMBER OF cr.users AND :user2 MEMBER OF cr.users")
-    Optional<ChatRoom> findByUsers(@Param("user1") User user1, @Param("user2") User user2);
+    @Query(value = """
+                SELECT cr.*
+                FROM chat_room cr
+                JOIN chat_room_users cru1 ON cr.id = cru1.chat_room_id
+                JOIN chat_room_users cru2 ON cr.id = cru2.chat_room_id
+                WHERE cru1.user_id = :user1Id
+                  AND cru2.user_id = :user2Id
+            """, nativeQuery = true)
+    Optional<ChatRoom> findByUsers(@Param("user1Id") Long user1Id, @Param("user2Id") Long user2Id);
 
+
+    @Query("""
+                SELECT cr
+                FROM ChatRoom cr
+                WHERE :user MEMBER OF cr.users
+            """)
+    List<ChatRoom> findChatRoomsByUser(@Param("user") User user);
 
     List<ChatRoom> findByUsersContaining(User user);
 

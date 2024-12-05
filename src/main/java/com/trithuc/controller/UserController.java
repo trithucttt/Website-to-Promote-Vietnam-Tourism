@@ -56,13 +56,10 @@ public class UserController {
     }
 
 
-    @GetMapping("/currentFullNameUser")
-    public User getCurrentFullNameUser(@RequestHeader(name="Authorization") String token){
-        return userService.getCurrentFullNameUser(token);
-    }
-    @GetMapping("/image")
-    public String getCurrentAvatarUser(@RequestHeader(name="Authorization") String token){
-        return userService.getCurrentAvatarUser(token);
+
+    @GetMapping("/get/current")
+    public Map<String,String> getCurrentAvatarUser(@RequestHeader(name="Authorization") String token){
+        return userService.getCurrentUser(token);
     }
 
     @PostMapping("changePass")
@@ -80,6 +77,15 @@ public class UserController {
         return userService.forGotPassword_SubmitMail(email);
     }
 
+    @GetMapping("register/sendCode")
+    public ResponseEntity<MessageResponse> registerSubmitMail(@RequestParam("email") String email){
+        return userService.registerSubmitMail(email);
+    }
+
+    @GetMapping("register/checkCode")
+    public ResponseEntity<MessageResponse> registerCheckCode(@RequestParam("email") String email,@RequestParam("otpCode")String otpCode){
+        return userService.registerCheckCode(email,otpCode);
+    }
     @GetMapping("forgot/checkCode")
     public ResponseEntity<MessageResponse> forgotPass_checkOtpCode(@RequestParam("email") String email,@RequestParam("otpCode")String otpCode){
         return userService.forgotPass_checkOtpCode(email,otpCode);
@@ -88,6 +94,11 @@ public class UserController {
     @GetMapping("friends/{userId}")
     public ResponseEntity<List<Friends>> getFriendsUser(@PathVariable Long userId){
         return ResponseEntity.ok(userService.getFriends(userId));
+    }
+
+    @GetMapping("friends/request/{userId}")
+    public ResponseEntity<List<Friends>> getRequestFriendsUser(@PathVariable Long userId){
+        return ResponseEntity.ok(userService.getRequestFriends(userId));
     }
 
     @GetMapping("{userId}")
@@ -101,17 +112,17 @@ public class UserController {
     }
 
     @PostMapping("/{userId}/sendFriendRequest/{friendId}")
-    public String sendFriendRequest(@PathVariable Long userId, @PathVariable Long friendId) {
-        return userService.sendFriendRequest(userId, friendId);
+    public ResponseEntity<MessageResponse> sendFriendRequest(@PathVariable Long userId, @PathVariable Long friendId) {
+        return ResponseEntity.ok(userService.sendFriendRequest(userId, friendId));
     }
 
-    @PostMapping("/{requestUserId}/acceptFriendRequest/{userId}")
-    public String acceptFriendRequest(@PathVariable Long requestUserId, @PathVariable Long userId) {
-        return userService.acceptFriendRequest(requestUserId, userId);
+    @PostMapping("/{requestUserId}/acceptFriendRequest/{receiverId}")
+    public ResponseEntity<MessageResponse> acceptFriendRequest(@PathVariable Long requestUserId, @PathVariable Long receiverId) {
+        return ResponseEntity.ok(userService.acceptFriendRequest(requestUserId, receiverId));
     }
 
-    @PostMapping("/{requestUserId}/rejectFriendRequest/{userId}")
-    public String rejectFriendRequest(@PathVariable Long requestUserId, @PathVariable Long userId) {
-        return userService.rejectFriendRequest(requestUserId, userId);
+    @PostMapping("/{requestUserId}/rejectFriendRequest/{receiverId}")
+    public ResponseEntity<MessageResponse> rejectFriendRequest(@PathVariable Long requestUserId, @PathVariable Long receiverId) {
+        return ResponseEntity.ok(userService.rejectFriendRequest(requestUserId, receiverId));
     }
 }

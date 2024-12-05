@@ -7,6 +7,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import com.trithuc.model.tourbooking_item;
 
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -23,4 +25,20 @@ public interface tourbooking_itemRepository extends JpaRepository<tourbooking_it
             "JOIN t.manager u " +
             "WHERE u.username = :username AND tbi.status = :status")
     List<Long> findTourBookingItemIdWithStatusByUsernameBusiness(@Param("username") String username, @Param("status") String status);
+
+    @Query("""
+           SELECT 
+               t.title AS tourName,
+               COUNT(tbi.id) AS bookingsCount,
+               SUM(tbi.price * tbi.quantity) AS totalRevenue
+           FROM tourbooking_item tbi
+           JOIN tbi.tour t
+           JOIN tbi.yourbooking yb
+           JOIN yb.payment p
+           WHERE (:startDate IS NULL OR p.date >= :startDate)
+           AND (:endDate IS NULL OR p.date <= :endDate)
+           GROUP BY t.title
+           ORDER BY totalRevenue DESC
+           """)
+    List<Object[]> findRevenueStatistics(LocalDate startDate, LocalDate endDate);
 }

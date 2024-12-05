@@ -2,6 +2,7 @@ package com.trithuc.controller;
 import com.trithuc.dto.NotificationDTO;
 import com.trithuc.model.Notification;
 import com.trithuc.model.User;
+import com.trithuc.response.MessageResponse;
 import com.trithuc.service.NotificationService;
 import com.trithuc.service.UserService; // Giả sử bạn có dịch vụ để lấy thông tin người dùng
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,5 +28,10 @@ public class NotificationController {
     @PutMapping("/read/{notificationId}")
     public ResponseEntity<Boolean> readNotification(@PathVariable Long notificationId){
         return ResponseEntity.ok(notificationService.readNotification(notificationId));
+    }
+
+    @DeleteMapping("/delete/{notificationId}")
+    public ResponseEntity<MessageResponse> deleteNotificationById(@PathVariable Long notificationId){
+        return ResponseEntity.ok(notificationService.deleteNotificationById(notificationId));
     }
 }

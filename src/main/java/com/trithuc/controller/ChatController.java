@@ -2,14 +2,13 @@ package com.trithuc.controller;
 
 import com.trithuc.dto.ChatMessageDTO;
 import com.trithuc.dto.ChatRoomDTO;
-import com.trithuc.model.ChatMessage;
-import com.trithuc.model.ChatRoom;
+
 import com.trithuc.request.ChatRoomRequest;
+import com.trithuc.request.EditChatRequest;
 import com.trithuc.response.ChatMessageResponse;
 import com.trithuc.service.ChatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,9 +26,8 @@ public class ChatController {
     private SimpMessagingTemplate messagingTemplate;
 
     @PostMapping("chat/create")
-    public ResponseEntity<ChatRoom> createChatRoom(@RequestBody ChatRoomRequest request){
-        ChatRoom chatRoom = chatService.createChatRoom(request.getUserId1(), request.getUserId2());
-        return ResponseEntity.ok(chatRoom);
+    public ResponseEntity<Long> createChatRoom(@RequestBody ChatRoomRequest request){
+        return ResponseEntity.ok(chatService.createChatRoom(request.getUserId1(), request.getUserId2()));
     }
 
     @GetMapping("chat/chatroom/{userId}")
@@ -38,24 +36,33 @@ public class ChatController {
         return ResponseEntity.ok(chatService.getChatRoomForUser(userId));
     }
     @PostMapping("/send")
-//    @SendTo("/topic/chat/{chatRoomId}")
     public ResponseEntity<ChatMessageResponse> sendMessage(@RequestBody ChatMessageDTO chatMessageDTO) {
         ChatMessageResponse sentMessage = chatService.sendMessage(chatMessageDTO);
         messagingTemplate.convertAndSend("/topic/chat/" + chatMessageDTO.getChatRoomId(), sentMessage);
         return ResponseEntity.ok(sentMessage);
     }
 
+    @PostMapping("/edit")
+    public ResponseEntity<ChatMessageResponse> editMessage(@RequestBody EditChatRequest editChatRequest) {
+        ChatMessageResponse editMessage = chatService.editChatMessage(editChatRequest);
+        messagingTemplate.convertAndSend("/topic/chat/" + editMessage.getChatRoomId(), editMessage);
+        return ResponseEntity.ok(editMessage);
+    }
+
+    @PostMapping("/delete/{messageId}")
+    public ResponseEntity<ChatMessageResponse> deleteMessage(@PathVariable Long messageId) {
+        ChatMessageResponse editMessage = chatService.deleteChatMessageById(messageId);
+        messagingTemplate.convertAndSend("/topic/chat/" + editMessage.getChatRoomId(), editMessage);
+        return ResponseEntity.ok(editMessage);
+    }
+
     @GetMapping("/chat/messages/{chatRoomId}")
     public ResponseEntity<List<ChatMessageResponse>> getChatMessages(@PathVariable Long chatRoomId) {
-//        List<ChatMessage> messages =
-//        System.out.println(messages);
         return ResponseEntity.ok(chatService.getChatMessages(chatRoomId));
     }
 
     @GetMapping("/messages/{messageId}")
     public ResponseEntity<ChatMessageResponse> getChatMessageById(@PathVariable Long messageId) {
-//        List<ChatMessage> messages =
-//        System.out.println(messages);
         return ResponseEntity.ok(chatService.getChatMessageById(messageId));
     }
 

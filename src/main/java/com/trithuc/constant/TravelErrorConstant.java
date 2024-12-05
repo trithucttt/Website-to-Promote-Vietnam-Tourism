@@ -10,6 +10,7 @@ public enum TravelErrorConstant {
     ERROR_CODE_POST_NOT_FOUND(404,"Post not found"),
     ERROR_CODE_TOUR_NOT_FOUND(404,"Tour not found"),
     USER_NOT_FOUND(404,"User not found" ),
+    COMMENT_NOT_FOUND(404,"Comment not found" ),
     FRIEND_NOT_FOUND(400,"Friend not found" ),
     NOTIFICATION_NOT_FOUND(404,"Notification not found" ),
     CHAT_MESSAGE_NOT_FOUND(404,"Chat not found" ),

@@ -12,6 +12,7 @@ import com.trithuc.model.User;
 import com.trithuc.repository.ChatMessageRepository;
 import com.trithuc.repository.ChatRoomRepository;
 import com.trithuc.repository.UserRepository;
+import com.trithuc.request.EditChatRequest;
 import com.trithuc.response.ChatMessageResponse;
 import com.trithuc.service.ChatService;
 import com.trithuc.service.NotificationService;
@@ -44,21 +45,43 @@ public class ChatServiceImpl implements ChatService {
     private NotificationService notificationService;
 
     @Override
-    public ChatRoom createChatRoom(Long userId1, Long userId2){
+    public Long createChatRoom(Long userId1, Long userId2) {
+        // Lấy user1 và user2 từ cơ sở dữ liệu
+        User user1 = userRepository.findById(userId1).orElseThrow(() -> new RuntimeException("User 1 not found"));
+        User user2 = userRepository.findById(userId2).orElseThrow(() -> new RuntimeException("User 2 not found"));
 
-        User user1 = userRepository.findById(userId1).orElseThrow();
-        User user2 = userRepository.findById(userId1).orElseThrow();
-        Optional<ChatRoom> existingChatRoom = chatRoomRepository.findByUsers(user1,user2);
-        if (existingChatRoom.isPresent()){
-            return existingChatRoom.get();
+        // Lấy danh sách các phòng chat mà user1 và user2 tham gia
+        List<ChatRoom> user1ChatRooms = chatRoomRepository.findChatRoomsByUser(user1);
+        List<ChatRoom> user2ChatRooms = chatRoomRepository.findChatRoomsByUser(user2);
+
+        // Bước 2: Nếu không có phòng chat nào cho user1 hoặc user2, tạo phòng chat mới
+        if (user1ChatRooms.isEmpty() || user2ChatRooms.isEmpty()) {
+            // Tạo phòng chat mới
+            ChatRoom chatRoom = new ChatRoom();
+            chatRoom.getUsers().add(user1);
+            chatRoom.getUsers().add(user2);
+            ChatRoom saveChatRoom = chatRoomRepository.save(chatRoom);
+            return saveChatRoom.getId(); // Trả về ID của phòng chat mới
         }
 
+        // Kiểm tra xem có phòng chat chung giữa user1 và user2 không
+        for (ChatRoom room1 : user1ChatRooms) {
+            for (ChatRoom room2 : user2ChatRooms) {
+                if (room1.getId().equals(room2.getId())) {
+                    // Nếu có phòng chat chung, trả về ID của phòng chat đó
+                    return room1.getId();
+                }
+            }
+        }
+
+        // Nếu không có phòng chat chung, tạo phòng chat mới và trả về ID của nó
         ChatRoom chatRoom = new ChatRoom();
         chatRoom.getUsers().add(user1);
         chatRoom.getUsers().add(user2);
-        return chatRoomRepository.save(chatRoom);
-
+        ChatRoom saveChatRoom = chatRoomRepository.save(chatRoom);
+        return saveChatRoom.getId();
     }
+
     @Override
     public ChatMessageResponse sendMessage(ChatMessageDTO chatMessageDTO) {
         ChatRoom chatRoom = chatRoomRepository.findById(chatMessageDTO.getChatRoomId())
@@ -68,7 +91,8 @@ public class ChatServiceImpl implements ChatService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         ChatMessage chatMessage = new ChatMessage();
-
+        chatMessage.setIsDeleted(false);
+        chatMessage.setIsEdited(false);
         chatMessage.setChatRoom(chatRoom);
         chatMessage.setSender(sender);
         chatMessage.setContent(chatMessageDTO.getContent());
@@ -107,8 +131,10 @@ public class ChatServiceImpl implements ChatService {
         response.setContent(chatMessage.getContent());
         response.setSenderId(chatMessage.getSender().getId());
         response.setChatRoomId(chatMessage.getChatRoom().getId());
-        response.setSenderName(chatMessage.getSender().getLastname() + " " + chatMessage.getSender().getFirstname());
+        response.setSenderName(chatMessage.getSender().getFirstname() + " " + chatMessage.getSender().getLastname());
         response.setTimestamp(chatMessage.getTimestamp());
+        response.setEdited(chatMessage.getIsEdited());
+        response.setIsDeleted(chatMessage.getIsDeleted());
         return response;
     }
 
@@ -127,7 +153,7 @@ public class ChatServiceImpl implements ChatService {
 
              List<UserDTO> userDTOS = users.stream()
                      .filter(u -> !u.getId().equals(userId))  // Loại bỏ user hiện tại
-                     .map(u -> new UserDTO(u.getId(), u.getLastname() + " " + u.getFirstname(), u.getProfileImage()))  // Kết hợp firstname, lastname và avatar
+                     .map(u -> new UserDTO(u.getId(), u.getFirstname() + " " + u.getLastname(), u.getProfileImage()))  // Kết hợp firstname, lastname và avatar
                      .toList();
 
 
@@ -200,4 +226,42 @@ public class ChatServiceImpl implements ChatService {
         return convertToChatMessageResponse(chatMessage.get());
     }
 
+
+    @Override
+    public ChatMessageResponse editChatMessage(EditChatRequest editChatRequest) {
+        ChatMessage chatMessage = chatMessageRepository.findChatRoomById(editChatRequest.getChatMessageId())
+                .orElseThrow(() -> new RuntimeException("Chat room not found"));
+
+        ChatRoom chatRoom = chatMessage.getChatRoom();
+
+
+        chatMessage.setContent(editChatRequest.getEditContent());
+        chatMessage.setTimestamp(new Timestamp(System.currentTimeMillis()));
+        chatMessage.setIsEdited(true);
+        ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
+        ChatMessageResponse response = convertToChatMessageResponse(chatMessage);
+        // Gửi tin nhắn qua WebSocket đến tất cả người dùng trong phòng chat
+        messagingTemplate.convertAndSend("/topic/chat/" + chatRoom.getId(), response);
+
+        return response;
+    }
+
+    @Override
+    public ChatMessageResponse deleteChatMessageById(Long  chatMessageId) {
+        ChatMessage chatMessage = chatMessageRepository.findChatRoomById(chatMessageId)
+                .orElseThrow(() -> new RuntimeException("Chat room not found"));
+
+        User sender = chatMessage.getSender();
+
+        ChatRoom chatRoom = chatMessage.getChatRoom();
+
+        chatMessage.setIsDeleted(true);
+        chatMessage.setTimestamp(new Timestamp(System.currentTimeMillis()));
+        ChatMessage deleteChat = chatMessageRepository.save(chatMessage);
+        ChatMessageResponse response = convertToChatMessageResponse(chatMessage);
+        // Gửi tin nhắn qua WebSocket đến tất cả người dùng trong phòng chat
+        messagingTemplate.convertAndSend("/topic/chat/" + chatRoom.getId(), response);
+
+        return response;
+    }
 }

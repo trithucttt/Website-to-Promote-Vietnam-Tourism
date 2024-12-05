@@ -51,6 +51,7 @@ public class Comment implements Serializable {
     @ManyToOne
     @JoinColumn(name = "post_id")
     @JsonIgnore
+    @ToString.Exclude
     private Post post;
 
     @OneToMany(mappedBy = "comment")

@@ -13,4 +13,7 @@ public class ChatMessageResponse {
         private Long chatRoomId;
         private Timestamp timestamp;
         private String senderName;
+        private boolean isEdited;
+        private Boolean isDeleted;
+        private String type;
 }

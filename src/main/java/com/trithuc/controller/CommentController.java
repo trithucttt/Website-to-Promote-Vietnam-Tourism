@@ -4,14 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.trithuc.dto.CommentDto;
 import com.trithuc.model.Comment;
 import com.trithuc.model.Image;
-import com.trithuc.request.CommentRequest;
 import com.trithuc.request.ReplyRequest;
+import com.trithuc.response.MessageResponse;
 import com.trithuc.service.CommentService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.simp.SimpMessageSendingOperations;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,29 +26,28 @@ public class CommentController {
 
     @Autowired
     private CommentService commentService;
-    @Autowired
-    private SimpMessageSendingOperations messageSendingOperations;
 
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
     @PostMapping(value ="create" ,consumes = MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createComment(@RequestPart(value = "newComment") String newComment,
-                                           @RequestPart(value = "images", required = false) List<MultipartFile> images) throws JsonProcessingException {
+    public ResponseEntity<MessageResponse> createComment(@RequestPart(value = "newComment") String newComment,
+                                                         @RequestPart(value = "images", required = false) List<MultipartFile> images) throws JsonProcessingException {
+
+//        CommentDto commentDto = commentService.getCommentAndConvertToDTO(commentId);
 
         return ResponseEntity.ok(commentService.createComment(newComment, images));
-//       if(comment != null ){
-//           messageSendingOperations.convertAndSend("/topic/comments" + comment.getPostTour().getId(),comment);
-//       }
-//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to add comment");
     }
 
     @PostMapping("/reply")
     public ResponseEntity<?> addReply(@RequestBody ReplyRequest replyRequest, @RequestHeader(name = "Authorization") String token) {
         Comment reply = commentService.addReplyToComment(token, replyRequest.getCommentId(), replyRequest.getContent());
-        if (reply != null) {
-            // Gửi thông tin reply mới tới tất cả clients đang lắng nghe
-            messageSendingOperations.convertAndSend("/topic/comments/" + reply.getParent().getId() + "/replies", reply);
-            return ResponseEntity.ok("Reply added successfully");
-        }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to add reply");
+//        if (reply != null) {
+//            // Gửi thông tin reply mới tới tất cả clients đang lắng nghe
+////            messageSendingOperations.convertAndSend("/topic/comments/" + reply.getParent().getId() + "/replies", reply);
+//            return ResponseEntity.ok("Reply added successfully");
+//        }
+//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Failed to add reply");
+        return null;
     }
 
     @GetMapping("list/{postId}")

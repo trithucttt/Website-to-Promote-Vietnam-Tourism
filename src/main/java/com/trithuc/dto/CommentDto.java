@@ -22,4 +22,6 @@ public class CommentDto {
     private List<Image> imageComment;
     private List<CommentDto> replies;
     private boolean isAnonymous;
+    private Long postId;
+    private String type;
 }

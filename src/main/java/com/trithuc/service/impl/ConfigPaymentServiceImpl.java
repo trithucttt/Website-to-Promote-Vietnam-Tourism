@@ -5,11 +5,20 @@ import com.trithuc.model.*;
 import com.trithuc.repository.*;
 import com.trithuc.request.AddToCartRequest;
 import com.trithuc.request.OrderRequest;
+import com.trithuc.request.ZaloPayRequest;
 import com.trithuc.response.*;
 import com.trithuc.service.ConfigPaymenntService;
 import com.trithuc.service.MailService;
 import com.trithuc.service.UserService;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,11 +30,14 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -110,7 +122,7 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             return "";
         }
     }
-
+// Payment with VNPay
     @Override
     @Cacheable(value = "TxRef", key = "#username")
     public ResponseEntity<MessageResponse> createUrlPayment(String username, Double totalPrice) throws UnsupportedEncodingException {
@@ -175,7 +187,6 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
         return ResponseEntity.ok(messageResponse);
     }
 
-
     @Override
     public ResponseEntity<?> handlePaymentResult(VnpPaymentDTO requestData, String token) {
         String username = userService.Authentication(token);
@@ -232,6 +243,101 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Payment Failed");
         }
     }
+
+
+//     Payment with ZaloPay
+    @Override
+    public MessageResponse createOrder(ZaloPayRequest request) throws Exception {
+        String appTransId = getCurrentTimeString("yyMMdd") + "_" + UUID.randomUUID();
+        long appTime = System.currentTimeMillis();
+        Map<String, String> embedData = Map.of("redirecturl", returnUrl);
+
+        Map[] item = {
+                new HashMap(){{
+                    put("itemid", "knb");
+                    put("itemname", "kim nguyen bao");
+                    put("itemprice", 198400);
+                    put("itemquantity", 1);
+                }}
+        };
+        Map<String, Object> order = new HashMap<>() {{
+            put("appid", "554");
+            put("apptransid", appTransId);
+            put("apptime", appTime);
+            put("appuser", request.getAppUser());
+            put("amount", request.getAmount());
+            put("description", request.getDescription());
+            put("bankcode", "zalopayapp");
+//            put("bankcode", "JCB");
+            put("item", new JSONObject(item).toString());
+            put("embeddata", new JSONObject(embedData).toString());
+        }};
+
+        // Tính MAC
+        String data = order.get("appid") + "|" + order.get("apptransid") + "|" + order.get("appuser") + "|" +
+                order.get("amount") + "|" + order.get("apptime") + "|" + order.get("embeddata") + "|" + order.get("item");
+        order.put("mac", calculateMac("8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn", data));
+
+        // Gửi HTTP POST
+        CloseableHttpClient client = HttpClients.createDefault();
+        HttpPost post = new HttpPost("https://sandbox.zalopay.com.vn/v001/tpe/createorder");
+        List<NameValuePair> params = new ArrayList<>();
+        for (Map.Entry<String, Object> e : order.entrySet()) {
+            params.add(new BasicNameValuePair(e.getKey(), e.getValue().toString()));
+        }
+        post.setEntity(new UrlEncodedFormEntity(params));
+        CloseableHttpResponse response = client.execute(post);
+
+        // Đọc phản hồi
+        BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+        StringBuilder result = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            result.append(line);
+        }
+
+        JSONObject jsonResponse = new JSONObject(result.toString());
+//        System.out.println("Response: " + jsonResponse);
+//        System.out.println("Order Data: " + order);
+//        System.out.println("Data for MAC: " + data);
+//        System.out.println("MAC: " + calculateMac("8NdU5pG5R2spGHGhyO99HN1OhD8IQJBn", data));
+//        System.out.println("Item JSON: " + new JSONObject(List.of(Map.of(
+//                "itemid", "knb",
+//                "itemname", "kim nguyen bao",
+//                "itemprice", request.getAmount(),
+//                "itemquantity", 1
+//        ))).toString());
+
+        return new MessageResponse("200","success",jsonResponse.toMap());
+    }
+
+    private String calculateMac(String key, String data) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        mac.init(secretKey);
+        byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        return bytesToHex(hash);
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    private String getCurrentTimeString(String format) {
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("GMT+7"));
+        SimpleDateFormat fmt = new SimpleDateFormat(format);
+        fmt.setCalendar(cal);
+        return fmt.format(cal.getTimeInMillis());
+    }
+
 
     @Override
     public ResponseEntity<MessageResponse> addToCart(AddToCartRequest addToCartRequest, String token) {
@@ -632,5 +738,20 @@ public class ConfigPaymentServiceImpl implements ConfigPaymenntService {
     @Override
     public Long getCanceledTours(Long businessId) {
         return yourBookingRepository.countCanceledToursByBusiness(businessId);
+    }
+
+    @Override
+    public List<RevenueStatisticsDTO> getRevenueStatistics(String startDate, String endDate) {
+        LocalDate start = startDate != null ? LocalDate.parse(startDate, DateTimeFormatter.ISO_DATE) : null;
+        LocalDate end = endDate != null ? LocalDate.parse(endDate, DateTimeFormatter.ISO_DATE) : null;
+
+        return tourBookingItemRepository.findRevenueStatistics(start, end)
+                .stream()
+                .map(objects -> new RevenueStatisticsDTO(
+                        (String) objects[0],
+                        (Long) objects[1],
+                        (Double) objects[2]
+                ))
+                .collect(Collectors.toList());
     }
 }

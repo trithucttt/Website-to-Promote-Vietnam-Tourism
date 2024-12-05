@@ -15,6 +15,9 @@ public interface FriendShipRepository extends JpaRepository<Friendship,Long> {
     @Query("SELECT f.id.friendId FROM Friendship f WHERE f.user.id = :userId AND f.friendState = 'ACCEPTED'")
     List<Long> findFriendIdsByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT f.id.friendId FROM Friendship f WHERE f.user.id = :userId AND f.friendState = 'REQUEST'")
+    List<Long> findFriendIdsByUserIdAndAndFriendState_Request(@Param("userId") Long userId);
+
 
 
     boolean existsById(FriendshipId friendshipId);

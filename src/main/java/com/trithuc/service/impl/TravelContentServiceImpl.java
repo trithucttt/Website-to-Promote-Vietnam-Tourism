@@ -710,42 +710,6 @@ public class TravelContentServiceImpl implements TravelContentService {
         post.setIsBusiness(true);
         List<Tour> tours = tourRepository.findAllById(addPostRequest.getTourId());
         post.setTours(new HashSet<>(tours));
-//        for (AddPostTourRequest request : addPostRequest.getAddPostTourRequests()) {
-//            Tour tour = new Tour();
-//            postTour.setDiscount(request.getDiscount());
-//            postTour.setQuantity(request.getQuantity());
-//
-//            Optional<Tour> tourOptional = tourRepository.findById(request.getTourId());
-//            if (tourOptional.isEmpty()) {
-//                messageResponse.setResponseCode("404");
-//                messageResponse.setMessage("Tour Not Found");
-//                return ResponseEntity.ok(messageResponse);
-//            }
-//            postTour.setTour(tourOptional.get());
-//            LocalDateTime tourStart = addPostRequest.getStartTimePost().plusMonths(1).plusDays(1);
-//            LocalDateTime tourEnd = tourStart.plusDays(request.getDayTour() - 1);
-//            if (tourEnd.isAfter(addPostRequest.getEndTimePost().minusWeeks(1))) {
-//                tourEnd = addPostRequest.getEndTimePost().minusWeeks(1);
-//            }
-//            while (isTourOverlapping(postTourList, tourStart, tourEnd)){
-//                tourStart = tourStart.plusDays(1);
-//                tourEnd = tourStart.plusDays(request.getDayTour() - 1);
-//                if (tourEnd.isAfter(addPostRequest.getEndTimePost().minusWeeks(1))) {
-//                    tourEnd = addPostRequest.getStartTimePost().plusDays(1);
-//                }
-//            }
-//            postTour.setStartTimeTour(tourStart);
-//            postTour.setEndTimeTour(tourEnd);
-//            postTour.setPost(post);
-//            postTourRepository.save(postTour);
-//            postTourList.add(postTour);
-
-//        }
-////        post.setTours(new HashSet<>(postTourList));
-//        postRepository.save(post);
-//        messageResponse.setResponseCode("200");
-//        messageResponse.setMessage("Post created successfully");
-//        return ResponseEntity.ok(messageResponse);
         postRepository.save(post);
         return ResponseEntity.ok(setUpResponse("Thêm bài viết thành công", "200", null));
     }

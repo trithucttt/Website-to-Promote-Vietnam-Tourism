@@ -33,4 +33,6 @@ public interface CommentService {
     void sendReplyUpdate(Comment repCm);
 
     String editComment(Long commentId, String editCommentRequest, List<MultipartFile> editImage) throws JsonProcessingException;
+
+    CommentDto getCommentAndConvertToDTO(Long commentId);
 }

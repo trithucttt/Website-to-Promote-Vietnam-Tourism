@@ -83,11 +83,6 @@ public class MailServiceImpl implements MailService {
                     .append("<p>Destinations:</p>")
                     .append("<ul>");
 
-//            item.getDestinations().forEach(destination ->
-//                    sb.append("<li>")
-//                            .append(destination.getName()).append(" - ").append(destination.getAddress())
-//                            .append("</li>"));
-
             sb.append("</ul>")
                     .append("</div>");
         });
@@ -95,7 +90,7 @@ public class MailServiceImpl implements MailService {
         sb.append("<p>Total Quantity: ").append(orderSummary.getTotalQuantity()).append("</p>")
                 .append("<p>Total Amount: $").append(String.format("%.2f", orderSummary.getTotalAmount())).append("</p>")
                 .append("<p>Regards,</p>")
-                .append("<p>Travel World</p>");
+                .append("<p>Wake Travel</p>");
 
         return sb.toString();
     }

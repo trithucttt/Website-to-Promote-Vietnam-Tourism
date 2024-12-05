@@ -2,7 +2,9 @@ package com.trithuc.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trithuc.constant.TravelErrorConstant;
 import com.trithuc.dto.CommentDto;
+import com.trithuc.exception.TravelException;
 import com.trithuc.model.*;
 import com.trithuc.repository.*;
 import com.trithuc.request.CommentRequest;
@@ -14,7 +16,7 @@ import com.trithuc.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.simp.SimpMessageSendingOperations;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,8 +39,9 @@ public class CommentServiceImpl implements CommentService {
     private UserRepository userRepository;
     @Autowired
     private PostRepository postRepository;
+
     @Autowired
-    private SimpMessageSendingOperations messageTemplate;
+    private SimpMessagingTemplate messagingTemplate;
     @Autowired
     private FileStoreService fileStoreService;
     @Autowired
@@ -88,6 +91,7 @@ public class CommentServiceImpl implements CommentService {
 
             messageResponse.setMessage("Xong");
             messageResponse.setResponseCode("200");
+            messageResponse.setData(commentSave);
             return messageResponse;
         } else {
             messageResponse.setMessage("Lỗi");
@@ -126,6 +130,7 @@ public class CommentServiceImpl implements CommentService {
             commentDto.setReplies(getRepliesRecursive(parenComment, comments));
             commentsDTO.add(commentDto);
         }
+        messagingTemplate.convertAndSend("topic/comments" + postId,commentsDTO);
         return commentsDTO;
     }
 
@@ -137,11 +142,12 @@ public class CommentServiceImpl implements CommentService {
                 comment.getUser().getProfileImage(),
                 comment.getContent(),
                 comment.getStart_time(),
-//                comment.getRating(),
                 comment.getUser().getUsername(),
                 new ArrayList<>(images),
                 new ArrayList<>(),
-                getStateComment(comment.getState())
+                getStateComment(comment.getState()),
+                comment.getPost().getId(),
+                ""
         );
     }
 
@@ -198,16 +204,16 @@ public class CommentServiceImpl implements CommentService {
         String username = userService.Authentication(token);
         Optional<User> user = userRepository.findByUsername(username);
         if (user.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("404");
         }
         Optional<Comment> commentOptional = commentRepository.findById(commentId);
         if (commentOptional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Comment not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("404");
         }
         Comment comment = commentOptional.get();
 
         if (!comment.getUser().getUsername().equals(username)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You are not authorized to delete this comment");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("403");
         }
 
         List<Image> imageList = imageRepository.findByCommentId(commentId);
@@ -220,12 +226,12 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public void sendCommentUpdate(Comment comment) {
-        messageTemplate.convertAndSend("/topic/comments" + comment.getPost().getId(), comment);
+        messagingTemplate.convertAndSend("/topic/comments" + comment.getPost().getId(), comment);
     }
 
     @Override
     public void sendReplyUpdate(Comment repCm) {
-        messageTemplate.convertAndSend("/topic/comments" + repCm.getParent().getId() + "/replies", repCm);
+        messagingTemplate.convertAndSend("/topic/comments" + repCm.getParent().getId() + "/replies", repCm);
     }
 
     @Override
@@ -275,5 +281,16 @@ public class CommentServiceImpl implements CommentService {
             return "200";
         }
 
+    }
+
+
+    @Override
+    public CommentDto getCommentAndConvertToDTO(Long commentId){
+        Optional<Comment> commentOtp = commentRepository.findById(commentId);
+        if (commentOtp.isEmpty()){
+            throw new TravelException(TravelErrorConstant.COMMENT_NOT_FOUND);
+
+        }
+        return convertToDTO(commentOtp.get());
     }
 }

@@ -44,5 +44,8 @@ public class ChatMessage implements Serializable {
     @OneToMany(mappedBy = "relatedChatMessage")
     @ToString.Exclude
     private List< Notification> notifications = new ArrayList<>();
+
+    private Boolean isEdited;
+    private Boolean isDeleted;
 }
 

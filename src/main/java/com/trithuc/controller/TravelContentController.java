@@ -284,8 +284,8 @@ public class TravelContentController {
     }
 
     @PostMapping("user/edit/post")
-    public ResponseEntity<MessageResponse> editPostNonSale(@RequestPart String data,@RequestPart(required = false) List<MultipartFile> images) throws JsonProcessingException {
-        return ResponseEntity.ok(travelContentService.createPostNonSale(data, images));
+    public ResponseEntity<MessageResponse> editPostNonSale(@RequestPart String editPostRequest,@RequestPart(required = false) List<MultipartFile> images) throws JsonProcessingException {
+        return ResponseEntity.ok(travelContentService.EditPostNonSale(editPostRequest, images));
     }
 
 }

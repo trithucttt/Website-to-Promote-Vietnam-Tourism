@@ -1,5 +1,6 @@
 package com.trithuc.controller;
 
+import com.trithuc.dto.RevenueStatisticsDTO;
 import com.trithuc.dto.TourBookingItemDTO;
 import com.trithuc.dto.TourBookingStatsDTO;
 import com.trithuc.dto.VnpPaymentDTO;
@@ -7,6 +8,7 @@ import com.trithuc.repository.PaymentRepository;
 import com.trithuc.repository.YourBookingRepository;
 import com.trithuc.request.AddToCartRequest;
 import com.trithuc.request.OrderRequest;
+import com.trithuc.request.ZaloPayRequest;
 import com.trithuc.response.MessageResponse;
 import com.trithuc.service.ConfigPaymenntService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,12 +34,6 @@ public class CheckOutController {
 
     @Autowired
     private ConfigPaymenntService configPaymenntService;
-
-    @PostMapping("create")
-    public ResponseEntity<MessageResponse> createUrlPayment() throws UnsupportedEncodingException{
-        return null;
-        // return configPaymenntService.createUrlPayment();
-    }
 
 
     @PostMapping( "cart/add")
@@ -173,4 +169,25 @@ public class CheckOutController {
     public Long getCanceledTours(@RequestParam Long businessId) {
         return configPaymenntService.getCanceledTours(businessId);
     }
+    // API lấy doanh thu
+    @GetMapping("/revenue-statistics")
+    public List<RevenueStatisticsDTO> getRevenueStatistics(
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate) {
+        return configPaymenntService.getRevenueStatistics(startDate, endDate);
+    }
+
+    // test create url payment with zalopay
+    @PostMapping("payment/zalopay/create-order")
+    public ResponseEntity<MessageResponse> createOrder(@RequestBody ZaloPayRequest request) {
+        try {
+            return ResponseEntity.ok(configPaymenntService.createOrder(request));
+        } catch (Exception e) {
+//            e.printStackTrace();
+            return ResponseEntity.ok(new MessageResponse("400","Error creating order: " + e.getMessage(),null));
+        }
+    }
+
+
+
 }
